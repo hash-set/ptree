@@ -142,16 +142,15 @@ impl Iterator for NodeIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         let node = self.node.clone();
-        match node {
-            Some(node) => {
-                if let Some(node) = node.left.borrow().clone() {
-                    self.node = Some(node.clone());
-                } else {
-                    self.node = None;
-                }
-                Some(node)
+        if let Some(node) = node {
+            if let Some(node) = node.left.borrow().clone() {
+                self.node = Some(node.clone());
+            } else {
+                self.node = None;
             }
-            None => None,
+            Some(node)
+        } else {
+            None
         }
     }
 }
