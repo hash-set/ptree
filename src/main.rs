@@ -42,12 +42,12 @@ const IPV4_MASK: [[u8; 4]; 33] = [
 
 const MASK_BITS: [u8; 9] = [0x00, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff];
 
-trait Prefixable {
+trait Prefix {
     fn to_masked(&self) -> Self;
     fn contains(&self, prefix: &Self) -> bool;
 }
 
-impl Prefixable for Ipv4Net {
+impl Prefix for Ipv4Net {
     fn to_masked(&self) -> Self {
         let octets: [u8; 4] = self.addr().octets();
         let mask = &IPV4_MASK[self.prefix_len() as usize];
