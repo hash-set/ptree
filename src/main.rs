@@ -132,8 +132,8 @@ impl Prefix for Ipv4Net {
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
 struct Node {
+    #[allow(dead_code)]
     val: u32,
     prefix: Ipv4Net,
     parent: RefCell<Option<Rc<Node>>>,
@@ -222,12 +222,10 @@ impl Ptree {
     }
 }
 
-pub enum Child {
-    Left = 0,
-    Right = 1,
-}
-
 impl Node {
+    const LEFT: usize = 0;
+    const RIGHT: usize = 1;
+
     pub fn new(prefix: &Ipv4Net) -> Self {
         Node {
             val: 1,
@@ -241,8 +239,8 @@ impl Node {
         self.parent.borrow().clone()
     }
 
-    fn child(&self, bit: Child) -> Option<Rc<Node>> {
-        self.children[bit as usize].borrow().clone()
+    fn child(&self, bit: usize) -> Option<Rc<Node>> {
+        self.children[bit].borrow().clone()
     }
 
     fn eq(lhs: &Self, rhs: &Self) -> bool {
@@ -250,24 +248,24 @@ impl Node {
     }
 
     fn next(&self) -> Option<Rc<Node>> {
-        if let Some(node) = self.child(Child::Left) {
+        if let Some(node) = self.child(Node::LEFT) {
             return Some(node.clone());
-        } else if let Some(node) = self.child(Child::Right) {
+        } else if let Some(node) = self.child(Node::RIGHT) {
             return Some(node.clone());
         } else {
             if let Some(parent) = self.parent() {
-                if let Some(left) = parent.child(Child::Left) {
+                if let Some(left) = parent.child(Node::LEFT) {
                     if Node::eq(left.as_ref(), self) {
-                        if let Some(right) = parent.child(Child::Right) {
+                        if let Some(right) = parent.child(Node::RIGHT) {
                             return Some(right.clone());
                         }
                     }
                 }
                 let mut cursor = parent;
                 while let Some(parent) = cursor.parent() {
-                    if let Some(left) = parent.child(Child::Left) {
+                    if let Some(left) = parent.child(Node::LEFT) {
                         if Node::eq(left.as_ref(), cursor.as_ref()) {
-                            if let Some(right) = parent.child(Child::Right) {
+                            if let Some(right) = parent.child(Node::RIGHT) {
                                 return Some(right.clone());
                             }
                         }
