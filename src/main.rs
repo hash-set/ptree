@@ -69,18 +69,20 @@ impl Prefix for Ipv4Net {
 
         let mut i: usize = 0;
         while i < prefix1.prefix_len() as usize / 8 {
-            if octets1[i] == octets2[2] {
+            if octets1[i] == octets2[i] {
                 octets[i] = octets1[i];
+            } else {
+                break;
             }
             i += 1;
         }
 
         let mut prefixlen = (i * 8) as u8;
 
-        if prefix1.prefix_len() != prefix2.prefix_len() {
+        if prefixlen != prefix1.prefix_len() {
             let diff = octets1[i] ^ octets2[i];
             let mut mask = 0x80u8;
-            while prefixlen < prefix1.prefix_len() && (mask & diff) != 0 {
+            while prefixlen < prefix1.prefix_len() && (mask & diff) == 0 {
                 mask >>= 1;
                 prefixlen += 1;
             }
@@ -135,7 +137,8 @@ struct Node {
     val: u32,
     prefix: Ipv4Net,
     parent: RefCell<Option<Rc<Node>>>,
-    left: RefCell<Option<Rc<Node>>>,
+    children: [RefCell<Option<Rc<Node>>>; 2],
+    // left: RefCell<Option<Rc<Node>>>,
     right: RefCell<Option<Rc<Node>>>,
 }
 
@@ -155,6 +158,7 @@ fn node_match_prefix(node: Option<Rc<Node>>, prefix: &Ipv4Net) -> bool {
 
 fn set_child(parent: Rc<Node>, child: Rc<Node>) {
     let bit = child.prefix.bit_at(parent.prefix.prefix_len());
+    println!("bit: {}", bit);
     parent.set_child_at(child.clone(), bit);
     child.set_parent(parent.clone());
 }
@@ -171,7 +175,9 @@ impl Ptree {
 
         match cursor {
             Some(node) => {
+                println!("Some");
                 new_node = Rc::new(Node::from_common(&node.prefix, prefix));
+                println!("new_node: {:?}", new_node);
                 set_child(new_node.clone(), node);
             }
             None => {
@@ -205,13 +211,15 @@ impl Node {
             val: 1,
             prefix: prefix.clone(),
             parent: RefCell::new(None),
-            left: RefCell::new(None),
+            children: [RefCell::new(None), RefCell::new(None)],
+            // left: RefCell::new(None),
             right: RefCell::new(None),
         }
     }
 
     fn from_common(prefix1: &Ipv4Net, prefix2: &Ipv4Net) -> Self {
         let common = Ipv4Net::from_common(prefix1, prefix2);
+        println!("common {}", common);
         Self::new(&common)
     }
 
@@ -220,11 +228,7 @@ impl Node {
     }
 
     fn set_child_at(&self, child: Rc<Node>, bit: u8) {
-        if bit == 0 {
-            self.left.borrow_mut().replace(child);
-        } else {
-            self.right.borrow_mut().replace(child);
-        }
+        self.children[bit as usize].borrow_mut().replace(child);
     }
 }
 
@@ -238,7 +242,7 @@ impl Iterator for NodeIter {
     fn next(&mut self) -> Option<Self::Item> {
         let node = self.node.clone();
         if let Some(node) = node {
-            if let Some(node) = node.left.borrow().clone() {
+            if let Some(node) = node.children[0].borrow().clone() {
                 self.node = Some(node);
             } else {
                 self.node = None;
@@ -254,21 +258,21 @@ fn sub(ptree: &mut Ptree) {
     let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
     ptree.insert(&net0);
 
-    let net128: Ipv4Net = "128.0.0.0/8".parse().unwrap();
+    let net128: Ipv4Net = "64.0.0.0/8".parse().unwrap();
     ptree.insert(&net128);
 }
 
 fn main() {
     let mut ptree = Ptree { top: None };
     sub(&mut ptree);
-    println!("{:?}", ptree);
+    // println!("{:?}", ptree);
 
     for i in ptree.iter() {
-        println!("Iter: {:?}", i);
+        println!("Iter: {}", i.prefix);
     }
-    if let Some(node) = ptree.top {
-        println!("count {}", Rc::strong_count(&node));
-    }
+    // if let Some(node) = ptree.top {
+    //     println!("count {}", Rc::strong_count(&node));
+    // }
 }
 
 #[cfg(test)]
