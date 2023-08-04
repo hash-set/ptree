@@ -163,28 +163,48 @@ fn set_child(parent: Rc<Node>, child: Rc<Node>) {
 
 impl Ptree {
     fn insert(&mut self, prefix: &Ipv4Net) {
-        let cursor = self.top.clone();
-        let matched: Option<Rc<Node>> = None;
-        let new_node: Rc<Node>;
+        let mut cursor = self.top.clone();
+        let mut matched: Option<Rc<Node>> = None;
+        let mut new_node: Rc<Node>;
 
         while node_match_prefix(cursor.clone(), prefix) {
-            //
+            let node = cursor.clone().unwrap();
+            if node.prefix.prefix_len() == prefix.prefix_len() {
+                println!("Same prefix already exists");
+                return;
+            }
+            matched = Some(node.clone());
+            cursor = node.child_with(prefix.bit_at(node.prefix.prefix_len()));
         }
 
         match cursor {
             Some(node) => {
-                println!("Some");
                 new_node = Rc::new(Node::from_common(&node.prefix, prefix));
-                println!("new_node: {:?}", new_node);
                 set_child(new_node.clone(), node);
+
+                match matched {
+                    Some(node) => {
+                        set_child(node, new_node.clone());
+                    }
+                    None => {
+                        self.top.replace(new_node.clone());
+                    }
+                }
+
+                if new_node.prefix.prefix_len() != prefix.prefix_len() {
+                    matched = Some(new_node.clone());
+                    new_node = Rc::new(Node::new(prefix));
+                    set_child(matched.unwrap().clone(), new_node.clone());
+                }
             }
             None => {
-                println!("None");
                 new_node = Rc::new(Node::new(prefix));
                 match matched {
-                    Some(_) => {}
+                    Some(node) => {
+                        set_child(node, new_node.clone());
+                    }
                     None => {
-                        self.top.replace(new_node);
+                        self.top.replace(new_node.clone());
                     }
                 }
             }
@@ -217,6 +237,10 @@ impl Node {
         let common = Ipv4Net::from_common(prefix1, prefix2);
         println!("common {}", common);
         Self::new(&common)
+    }
+
+    fn child_with(&self, bit: u8) -> Option<Rc<Node>> {
+        self.children[bit as usize].borrow().clone()
     }
 
     fn set_parent(&self, parent: Rc<Node>) {
@@ -255,6 +279,7 @@ fn sub(ptree: &mut Ptree) {
     ptree.insert(&net0);
 
     let net128: Ipv4Net = "64.0.0.0/8".parse().unwrap();
+    ptree.insert(&net128);
     ptree.insert(&net128);
 }
 
