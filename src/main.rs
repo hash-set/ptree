@@ -143,7 +143,7 @@ impl Iterator for NodeIter {
         let node = self.node.clone();
         if let Some(node) = node {
             if let Some(node) = node.left.borrow().clone() {
-                self.node = Some(node.clone());
+                self.node = Some(node);
             } else {
                 self.node = None;
             }
