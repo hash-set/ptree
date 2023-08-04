@@ -156,7 +156,6 @@ fn node_match_prefix(node: Option<Rc<Node>>, prefix: &Ipv4Net) -> bool {
 
 fn set_child(parent: Rc<Node>, child: Rc<Node>) {
     let bit = child.prefix.bit_at(parent.prefix.prefix_len());
-    println!("bit: {}", bit);
     parent.set_child_at(child.clone(), bit);
     child.set_parent(parent.clone());
 }
@@ -223,6 +222,11 @@ impl Ptree {
     }
 }
 
+pub enum Child {
+    Left = 0,
+    Right = 1,
+}
+
 impl Node {
     pub fn new(prefix: &Ipv4Net) -> Self {
         Node {
@@ -233,9 +237,50 @@ impl Node {
         }
     }
 
+    pub fn parent(&self) -> Option<Rc<Node>> {
+        self.parent.borrow().clone()
+    }
+
+    fn child(&self, bit: Child) -> Option<Rc<Node>> {
+        self.children[bit as usize].borrow().clone()
+    }
+
+    fn eq(lhs: &Self, rhs: &Self) -> bool {
+        lhs as *const _ == rhs as *const _
+    }
+
+    fn next(&self) -> Option<Rc<Node>> {
+        if let Some(node) = self.child(Child::Left) {
+            return Some(node.clone());
+        } else if let Some(node) = self.child(Child::Right) {
+            return Some(node.clone());
+        } else {
+            if let Some(parent) = self.parent() {
+                if let Some(left) = parent.child(Child::Left) {
+                    if Node::eq(left.as_ref(), self) {
+                        if let Some(right) = parent.child(Child::Right) {
+                            return Some(right.clone());
+                        }
+                    }
+                }
+                let mut cursor = parent;
+                while let Some(parent) = cursor.parent() {
+                    if let Some(left) = parent.child(Child::Left) {
+                        if Node::eq(left.as_ref(), cursor.as_ref()) {
+                            if let Some(right) = parent.child(Child::Right) {
+                                return Some(right.clone());
+                            }
+                        }
+                    }
+                    cursor = parent;
+                }
+            }
+        }
+        None
+    }
+
     fn from_common(prefix1: &Ipv4Net, prefix2: &Ipv4Net) -> Self {
         let common = Ipv4Net::from_common(prefix1, prefix2);
-        println!("common {}", common);
         Self::new(&common)
     }
 
@@ -261,12 +306,9 @@ impl Iterator for NodeIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         let node = self.node.clone();
+
         if let Some(node) = node {
-            if let Some(node) = node.children[0].borrow().clone() {
-                self.node = Some(node);
-            } else {
-                self.node = None;
-            }
+            self.node = node.next().clone();
             Some(node)
         } else {
             None
