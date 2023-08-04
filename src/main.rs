@@ -210,9 +210,8 @@ impl Ptree {
         }
     }
 
-    #[allow(dead_code)]
-    fn lookup_exact(&self, _prefix: Ipv4Net) -> Option<Rc<Node>> {
-        None
+    fn delete(&mut self, _prefix: &Ipv4Net) {
+        //
     }
 
     fn iter(&self) -> NodeIter {
@@ -223,9 +222,6 @@ impl Ptree {
 }
 
 impl Node {
-    const LEFT: usize = 0;
-    const RIGHT: usize = 1;
-
     pub fn new(prefix: &Ipv4Net) -> Self {
         Node {
             val: 1,
@@ -243,9 +239,29 @@ impl Node {
         self.children[bit].borrow().clone()
     }
 
+    fn from_common(prefix1: &Ipv4Net, prefix2: &Ipv4Net) -> Self {
+        let common = Ipv4Net::from_common(prefix1, prefix2);
+        Self::new(&common)
+    }
+
+    fn child_with(&self, bit: u8) -> Option<Rc<Node>> {
+        self.children[bit as usize].borrow().clone()
+    }
+
+    fn set_parent(&self, parent: Rc<Node>) {
+        self.parent.replace(Some(parent));
+    }
+
+    fn set_child_at(&self, child: Rc<Node>, bit: u8) {
+        self.children[bit as usize].borrow_mut().replace(child);
+    }
+
     fn eq(lhs: &Self, rhs: &Self) -> bool {
         lhs as *const _ == rhs as *const _
     }
+
+    const LEFT: usize = 0;
+    const RIGHT: usize = 1;
 
     fn next(&self) -> Option<Rc<Node>> {
         if let Some(node) = self.child(Node::LEFT) {
@@ -276,23 +292,6 @@ impl Node {
         }
         None
     }
-
-    fn from_common(prefix1: &Ipv4Net, prefix2: &Ipv4Net) -> Self {
-        let common = Ipv4Net::from_common(prefix1, prefix2);
-        Self::new(&common)
-    }
-
-    fn child_with(&self, bit: u8) -> Option<Rc<Node>> {
-        self.children[bit as usize].borrow().clone()
-    }
-
-    fn set_parent(&self, parent: Rc<Node>) {
-        self.parent.replace(Some(parent));
-    }
-
-    fn set_child_at(&self, child: Rc<Node>, bit: u8) {
-        self.children[bit as usize].borrow_mut().replace(child);
-    }
 }
 
 struct NodeIter {
@@ -321,6 +320,8 @@ fn sub(ptree: &mut Ptree) {
     let net128: Ipv4Net = "64.0.0.0/8".parse().unwrap();
     ptree.insert(&net128);
     ptree.insert(&net128);
+
+    ptree.delete(&net128);
 }
 
 fn main() {
