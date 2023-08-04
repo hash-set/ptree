@@ -286,14 +286,10 @@ fn sub(ptree: &mut Ptree) {
 fn main() {
     let mut ptree = Ptree { top: None };
     sub(&mut ptree);
-    // println!("{:?}", ptree);
 
     for i in ptree.iter() {
         println!("Iter: {}", i.prefix);
     }
-    // if let Some(node) = ptree.top {
-    //     println!("count {}", Rc::strong_count(&node));
-    // }
 }
 
 #[cfg(test)]
