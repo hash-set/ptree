@@ -98,7 +98,6 @@ struct Node {
 
 #[derive(Debug)]
 struct Ptree {
-    #[allow(dead_code)]
     top: Option<Rc<Node>>,
 }
 
