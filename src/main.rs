@@ -101,16 +101,42 @@ struct Ptree {
     top: Option<Rc<Node>>,
 }
 
+fn node_match_prefix(node: Option<Rc<Node>>, prefix: &Ipv4Net) -> bool {
+    match node {
+        None => false,
+        Some(node) => {
+            node.prefix.prefix_len() <= prefix.prefix_len() && node.prefix.contains(prefix)
+        }
+    }
+}
+
 impl Ptree {
-    fn set_top(&mut self, node: Rc<Node>) {
-        self.top = Some(node);
+    fn insert(&mut self, prefix: &Ipv4Net) {
+        let cursor = self.top.clone();
+        let matched: Option<Rc<Node>> = None;
+        let new_node: Rc<Node>;
+
+        while node_match_prefix(cursor.clone(), prefix) {
+            //
+        }
+
+        match cursor {
+            Some(_) => {}
+            None => {
+                new_node = Rc::new(Node::new(prefix));
+                match matched {
+                    Some(_) => {}
+                    None => {
+                        self.top.replace(new_node);
+                    }
+                }
+            }
+        }
     }
 
     #[allow(dead_code)]
-    fn insert(&mut self, node: Node) {
-        if self.top.is_none() {
-            self.top = Some(Rc::new(node));
-        }
+    fn lookup_exact(&self, _prefix: Ipv4Net) -> Option<Rc<Node>> {
+        None
     }
 
     fn iter(&self) -> NodeIter {
@@ -121,10 +147,10 @@ impl Ptree {
 }
 
 impl Node {
-    pub fn new(prefix: Ipv4Net) -> Self {
+    pub fn new(prefix: &Ipv4Net) -> Self {
         Node {
             val: 1,
-            prefix,
+            prefix: prefix.clone(),
             parent: RefCell::new(None),
             left: RefCell::new(None),
             right: RefCell::new(None),
@@ -156,29 +182,22 @@ impl Iterator for NodeIter {
 
 fn sub(ptree: &mut Ptree) {
     let net10: Ipv4Net = "10.0.0.0/8".parse().unwrap();
-    let node10 = Rc::new(Node::new(net10));
-    println!("{:?}", node10);
+    let node10 = Rc::new(Node::new(&net10));
+    // println!("{:?}", node10);
 
     let net11: Ipv4Net = "10.128.0.0/16".parse().unwrap();
-    let node11 = Rc::new(Node::new(net11));
-    println!("{:?}", node11);
+    let node11 = Rc::new(Node::new(&net11));
+    // println!("{:?}", node11);
 
     *node10.left.borrow_mut() = Some(node11.clone());
 
     let net12: Ipv4Net = "10.255.0.0/16".parse().unwrap();
-    let node12 = Rc::new(Node::new(net12));
-    println!("{:?}", node12);
+    let node12 = Rc::new(Node::new(&net12));
+    // println!("{:?}", node12);
 
     *node10.right.borrow_mut() = Some(node12.clone());
 
-    if net10.contains(&net11) {
-        println!("XXX Contain");
-    } else {
-        println!("XXX Dose not Contain");
-    }
-
-    ptree.set_top(node10.clone());
-    println!("count {}", Rc::strong_count(&node10));
+    ptree.insert(&net10);
 }
 
 fn main() {
