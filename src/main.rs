@@ -185,54 +185,16 @@ fn main() {
     let mut ptree = Ptree { top: None };
     sub(&mut ptree);
     println!("{:?}", ptree);
+
     for i in ptree.iter() {
         println!("Iter: {:?}", i);
     }
     for i in ptree.iter() {
         println!("Iter: {:?}", i);
     }
-    // if let Some(node) = ptree.top {
-    //     println!("count {}", Rc::strong_count(&node));
-    // }
-
-    // let node10 = Node {
-    //     val: 10,
-    //     prefix: net10,
-    //     left: None,
-    //     right: None,
-    // };
-    // //ptree.insert(node10);
-    // println!("{:?}", ptree);
-
-    // let node11 = Node {
-    //     val: 11,
-    //     prefix: net11,
-    //     left: Some(Rc::new(node10)),
-    //     right: None,
-    // };
-
-    // let node = &node11.left.as_ref().unwrap();
-    // let node12 = Node {
-    //     val: 12,
-    //     prefix: net12,
-    //     left: Some(Rc::clone(node)),
-    //     right: None,
-    // };
-    // println!("{:?}", node12);
-    // println!("{:?}", Rc::strong_count(&node12.left.as_ref().unwrap()));
-
-    // println!("{:?}", node11);
-    // println!("{:?}", Rc::strong_count(&node11.left.as_ref().unwrap()));
-
-    // if let Some(ref node) = ptree.top {
-    //     println!("NODE: {:?} {}", node, Rc::<Node>::strong_count(&node));
-    //     println!("NODE: {}", node.prefix.prefix_len());
-    // }
-    // if let Some(ref node) = ptree.top {
-    //     println!("NODE: {:?} {}", node, Rc::<Node>::strong_count(&node));
-    // }
-
-    // trait_test(net10);
+    if let Some(node) = ptree.top {
+        println!("count {}", Rc::strong_count(&node));
+    }
 }
 
 #[cfg(test)]
