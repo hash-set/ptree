@@ -181,23 +181,26 @@ impl Iterator for NodeIter {
 }
 
 fn sub(ptree: &mut Ptree) {
-    let net10: Ipv4Net = "10.0.0.0/8".parse().unwrap();
-    let node10 = Rc::new(Node::new(&net10));
-    // println!("{:?}", node10);
+    let net0: Ipv4Net = "0.0.0.0/32".parse().unwrap();
+    let node0 = Rc::new(Node::new(&net0));
+    // println!("{:?}", node0);
 
     let net11: Ipv4Net = "10.128.0.0/16".parse().unwrap();
     let node11 = Rc::new(Node::new(&net11));
     // println!("{:?}", node11);
 
-    *node10.left.borrow_mut() = Some(node11.clone());
+    *node0.left.borrow_mut() = Some(node11.clone());
 
     let net12: Ipv4Net = "10.255.0.0/16".parse().unwrap();
     let node12 = Rc::new(Node::new(&net12));
     // println!("{:?}", node12);
 
-    *node10.right.borrow_mut() = Some(node12.clone());
+    *node0.right.borrow_mut() = Some(node12.clone());
 
-    ptree.insert(&net10);
+    ptree.insert(&net0);
+
+    let net128: Ipv4Net = "128.0.0.0/32".parse().unwrap();
+    ptree.insert(&net128);
 }
 
 fn main() {
