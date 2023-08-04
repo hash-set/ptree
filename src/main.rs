@@ -138,8 +138,6 @@ struct Node {
     prefix: Ipv4Net,
     parent: RefCell<Option<Rc<Node>>>,
     children: [RefCell<Option<Rc<Node>>>; 2],
-    // left: RefCell<Option<Rc<Node>>>,
-    right: RefCell<Option<Rc<Node>>>,
 }
 
 #[derive(Debug)]
@@ -212,8 +210,6 @@ impl Node {
             prefix: prefix.clone(),
             parent: RefCell::new(None),
             children: [RefCell::new(None), RefCell::new(None)],
-            // left: RefCell::new(None),
-            right: RefCell::new(None),
         }
     }
 
