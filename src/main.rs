@@ -225,48 +225,6 @@ impl Ptree {
         NodeIter { node: None }
     }
 
-    // /* Delete node from the routing table. */
-    // static void
-    // 	route_node_delete (struct route_node *node)
-    // {
-    // 	struct route_node *child;
-    // 	struct route_node *parent;
-
-    // 	assert (node->lock == 0);
-    // 	assert (node->info == NULL);
-
-    // 	if (node->l_left && node->l_right)
-    // 	    return;
-
-    // 	if (node->l_left)
-    // 	    child = node->l_left;
-    // 	else
-    // 	    child = node->l_right;
-
-    // 	parent = node->parent;
-
-    // 	if (child)
-    // 	    child->parent = parent;
-
-    // 	if (parent)
-    // 	{
-    // 	    if (parent->l_left == node)
-    // 		parent->l_left = child;
-    // 	    else
-    // 		parent->l_right = child;
-    // 	}
-    // 	else
-    // 	    node->table->top = child;
-
-    // 	node->table->count--;
-
-    // 	route_node_free (node->table, node);
-
-    // 	/* If parent node is stub then delete it also. */
-    // 	if (parent && parent->lock == 0)
-    // 	    route_node_delete (parent);
-    // }
-
     fn delete(&mut self, prefix: &Ipv4Net) {
         let iter = self.lookup_exact(prefix);
         if let Some(node) = iter.node {
@@ -286,9 +244,9 @@ impl Ptree {
             };
 
             // Parent
-            let parent = node.parent.borrow().clone();
+            let parent = node.parent();
 
-            // Replace parent.
+            // Replace child's parent. TODO: when only top node exists.
             if let Some(child) = child.clone() {
                 child.parent.replace(parent.clone());
             }
@@ -298,7 +256,7 @@ impl Ptree {
                 if let Some(left) = p.child(Child::Left) {
                     if Node::eq(left.as_ref(), node.as_ref()) {
                         println!("Parent: left points out me");
-                        *p.children[Child::Left as usize].borrow_mut() = child.clone();
+                        p.children[Child::Left as usize].replace(child.clone());
                     }
                     println!("Parent: left exists {}", left.prefix);
                 } else {
@@ -307,12 +265,15 @@ impl Ptree {
                 if let Some(right) = p.child(Child::Right) {
                     if Node::eq(right.as_ref(), node.as_ref()) {
                         println!("Parent: right points out me");
-                        *p.children[Child::Right as usize].borrow_mut() = child.clone();
+                        p.children[Child::Right as usize].replace(child.clone());
                     }
                     println!("Parent: right exists {}", right.prefix);
                 } else {
                     println!("Parent: right does not exists");
                 }
+            } else {
+                // Parent is empty.
+                self.top = child.clone();
             }
         } else {
             println!("Delete: node not found");
