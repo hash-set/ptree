@@ -132,20 +132,15 @@ impl Prefix for Ipv4Net {
 }
 
 #[derive(Debug)]
-struct Node {
-    #[allow(dead_code)]
-    val: u32,
+struct Node<D> {
     prefix: Ipv4Net,
-    parent: RefCell<Option<Rc<Node>>>,
-    children: [RefCell<Option<Rc<Node>>>; 2],
+    parent: RefCell<Option<Rc<Node<D>>>>,
+    children: [RefCell<Option<Rc<Node<D>>>>; 2],
+    #[allow(dead_code)]
+    data: Option<D>,
 }
 
-#[derive(Debug)]
-struct Ptree {
-    top: Option<Rc<Node>>,
-}
-
-fn node_match_prefix(node: Option<Rc<Node>>, prefix: &Ipv4Net) -> bool {
+fn node_match_prefix<D>(node: Option<Rc<Node<D>>>, prefix: &Ipv4Net) -> bool {
     match node {
         None => false,
         Some(node) => {
@@ -154,17 +149,22 @@ fn node_match_prefix(node: Option<Rc<Node>>, prefix: &Ipv4Net) -> bool {
     }
 }
 
-fn set_child(parent: Rc<Node>, child: Rc<Node>) {
+fn set_child<D>(parent: Rc<Node<D>>, child: Rc<Node<D>>) {
     let bit = child.prefix.bit_at(parent.prefix.prefix_len());
     parent.set_child_at(child.clone(), bit);
     child.set_parent(parent.clone());
 }
 
-impl Ptree {
-    fn insert(&mut self, prefix: &Ipv4Net) {
+#[derive(Debug)]
+struct Ptree<D> {
+    top: Option<Rc<Node<D>>>,
+}
+
+impl<D> Ptree<D> {
+    fn insert(&mut self, prefix: &Ipv4Net, _data: D) {
         let mut cursor = self.top.clone();
-        let mut matched: Option<Rc<Node>> = None;
-        let mut new_node: Rc<Node>;
+        let mut matched: Option<Rc<Node<D>>> = None;
+        let mut new_node: Rc<Node<D>>;
 
         while node_match_prefix(cursor.clone(), prefix) {
             let node = cursor.clone().unwrap();
@@ -210,7 +210,7 @@ impl Ptree {
         }
     }
 
-    fn lookup_exact(&self, prefix: &Ipv4Net) -> NodeIter {
+    fn lookup_exact(&self, prefix: &Ipv4Net) -> NodeIter<D> {
         let mut cursor = self.top.clone();
 
         while node_match_prefix(cursor.clone(), prefix) {
@@ -268,14 +268,14 @@ impl Ptree {
         }
     }
 
-    fn iter(&self) -> NodeIter {
+    fn iter(&self) -> NodeIter<D> {
         NodeIter {
             node: self.top.clone(),
         }
     }
 }
 
-impl Drop for Node {
+impl<D> Drop for Node<D> {
     fn drop(&mut self) {
         println!("Dropping: {}", self.prefix);
     }
@@ -286,21 +286,31 @@ enum NodeChild {
     Right = 1,
 }
 
-impl Node {
+impl<D> Node<D> {
     pub fn new(prefix: &Ipv4Net) -> Self {
         Node {
-            val: 1,
             prefix: prefix.clone(),
             parent: RefCell::new(None),
             children: [RefCell::new(None), RefCell::new(None)],
+            data: None,
         }
     }
 
-    pub fn parent(&self) -> Option<Rc<Node>> {
+    #[allow(dead_code)]
+    pub fn new2(prefix: &Ipv4Net, data: D) -> Self {
+        Node {
+            prefix: prefix.clone(),
+            parent: RefCell::new(None),
+            children: [RefCell::new(None), RefCell::new(None)],
+            data: Some(data),
+        }
+    }
+
+    pub fn parent(&self) -> Option<Rc<Node<D>>> {
         self.parent.borrow().clone()
     }
 
-    fn child(&self, bit: NodeChild) -> Option<Rc<Node>> {
+    fn child(&self, bit: NodeChild) -> Option<Rc<Node<D>>> {
         self.children[bit as usize].borrow().clone()
     }
 
@@ -309,15 +319,15 @@ impl Node {
         Self::new(&common)
     }
 
-    fn child_with(&self, bit: u8) -> Option<Rc<Node>> {
+    fn child_with(&self, bit: u8) -> Option<Rc<Node<D>>> {
         self.children[bit as usize].borrow().clone()
     }
 
-    fn set_parent(&self, parent: Rc<Node>) {
+    fn set_parent(&self, parent: Rc<Node<D>>) {
         self.parent.replace(Some(parent));
     }
 
-    fn set_child_at(&self, child: Rc<Node>, bit: u8) {
+    fn set_child_at(&self, child: Rc<Node<D>>, bit: u8) {
         self.children[bit as usize].borrow_mut().replace(child);
     }
 
@@ -325,7 +335,7 @@ impl Node {
         lhs as *const _ == rhs as *const _
     }
 
-    fn next(&self) -> Option<Rc<Node>> {
+    fn next(&self) -> Option<Rc<Node<D>>> {
         if let Some(node) = self.child(NodeChild::Left) {
             return Some(node.clone());
         } else if let Some(node) = self.child(NodeChild::Right) {
@@ -356,20 +366,20 @@ impl Node {
     }
 }
 
-struct NodeIter {
-    node: Option<Rc<Node>>,
+struct NodeIter<D> {
+    node: Option<Rc<Node<D>>>,
 }
 
-impl NodeIter {
-    fn from_node(node: Rc<Node>) -> Self {
+impl<D> NodeIter<D> {
+    fn from_node(node: Rc<Node<D>>) -> Self {
         NodeIter {
             node: Some(node.clone()),
         }
     }
 }
 
-impl Iterator for NodeIter {
-    type Item = Rc<Node>;
+impl<D> Iterator for NodeIter<D> {
+    type Item = Rc<Node<D>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let node = self.node.clone();
@@ -387,7 +397,7 @@ fn top() {
     println!("--top--");
     let mut ptree = Ptree { top: None };
     let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
-    ptree.insert(&net0);
+    ptree.insert(&net0, 1);
 
     for i in ptree.iter() {
         println!("Iter: {}", i.prefix);
@@ -404,10 +414,10 @@ fn mask() {
     println!("--mask--");
     let mut ptree = Ptree { top: None };
     let net0: Ipv4Net = "0.0.0.0/32".parse().unwrap();
-    ptree.insert(&net0);
+    ptree.insert(&net0, 10);
 
     let net128: Ipv4Net = "128.0.0.0/32".parse().unwrap();
-    ptree.insert(&net128);
+    ptree.insert(&net128, 12);
 
     for i in ptree.iter() {
         println!("Iter: {}", i.prefix);
@@ -421,14 +431,14 @@ fn mask() {
     }
 }
 
-fn sub(ptree: &mut Ptree) {
+fn sub(ptree: &mut Ptree<u32>) {
     println!("--sub--");
     let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
-    ptree.insert(&net0);
+    ptree.insert(&net0, 1);
 
     let net64: Ipv4Net = "64.0.0.0/8".parse().unwrap();
-    ptree.insert(&net64);
-    ptree.insert(&net64);
+    ptree.insert(&net64, 2);
+    ptree.insert(&net64, 3);
 
     for i in ptree.iter() {
         println!("Iter: {}", i.prefix);
@@ -456,7 +466,7 @@ fn main() {
     {
         println!("--drop--");
         let net128: Ipv4Net = "128.0.0.0/8".parse().unwrap();
-        let node = Rc::new(Node::new(&net128));
+        let node = Rc::new(Node::<u32>::new(&net128));
         println!("{:?}", node);
     }
 }
