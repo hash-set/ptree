@@ -225,8 +225,98 @@ impl Ptree {
         NodeIter { node: None }
     }
 
-    fn delete(&mut self, _prefix: &Ipv4Net) {
-        //
+    // /* Delete node from the routing table. */
+    // static void
+    // 	route_node_delete (struct route_node *node)
+    // {
+    // 	struct route_node *child;
+    // 	struct route_node *parent;
+
+    // 	assert (node->lock == 0);
+    // 	assert (node->info == NULL);
+
+    // 	if (node->l_left && node->l_right)
+    // 	    return;
+
+    // 	if (node->l_left)
+    // 	    child = node->l_left;
+    // 	else
+    // 	    child = node->l_right;
+
+    // 	parent = node->parent;
+
+    // 	if (child)
+    // 	    child->parent = parent;
+
+    // 	if (parent)
+    // 	{
+    // 	    if (parent->l_left == node)
+    // 		parent->l_left = child;
+    // 	    else
+    // 		parent->l_right = child;
+    // 	}
+    // 	else
+    // 	    node->table->top = child;
+
+    // 	node->table->count--;
+
+    // 	route_node_free (node->table, node);
+
+    // 	/* If parent node is stub then delete it also. */
+    // 	if (parent && parent->lock == 0)
+    // 	    route_node_delete (parent);
+    // }
+
+    fn delete(&mut self, prefix: &Ipv4Net) {
+        let iter = self.lookup_exact(prefix);
+        if let Some(node) = iter.node {
+            println!("Delete: {}, count {}", node.prefix, Rc::strong_count(&node));
+            let has_left = node.child(Child::Left).is_some();
+            let has_right = node.child(Child::Right).is_some();
+
+            if has_left && has_right {
+                return;
+            }
+
+            // Child
+            let child = if has_left {
+                node.child(Child::Left)
+            } else {
+                node.child(Child::Right)
+            };
+
+            // Parent
+            let parent = node.parent.borrow().clone();
+
+            // Replace parent.
+            if let Some(child) = child.clone() {
+                child.parent.replace(parent.clone());
+            }
+
+            if let Some(p) = parent {
+                println!("Parent: {}", p.prefix);
+                if let Some(left) = p.child(Child::Left) {
+                    if Node::eq(left.as_ref(), node.as_ref()) {
+                        println!("Parent: left points out me");
+                        *p.children[Child::Left as usize].borrow_mut() = child.clone();
+                    }
+                    println!("Parent: left exists {}", left.prefix);
+                } else {
+                    println!("Parent: left does not exists");
+                }
+                if let Some(right) = p.child(Child::Right) {
+                    if Node::eq(right.as_ref(), node.as_ref()) {
+                        println!("Parent: right points out me");
+                        *p.children[Child::Right as usize].borrow_mut() = child.clone();
+                    }
+                    println!("Parent: right exists {}", right.prefix);
+                } else {
+                    println!("Parent: right does not exists");
+                }
+            }
+        } else {
+            println!("Delete: node not found");
+        }
     }
 
     fn iter(&self) -> NodeIter {
@@ -238,7 +328,7 @@ impl Ptree {
 
 impl Drop for Node {
     fn drop(&mut self) {
-        println!("Dropping {}", self.val);
+        println!("Dropping: {}", self.prefix);
     }
 }
 
@@ -285,9 +375,6 @@ impl Node {
     fn eq(lhs: &Self, rhs: &Self) -> bool {
         lhs as *const _ == rhs as *const _
     }
-
-    // const LEFT: usize = 0;
-    // const RIGHT: usize = 1;
 
     fn next(&self) -> Option<Rc<Node>> {
         if let Some(node) = self.child(Child::Left) {
@@ -351,22 +438,26 @@ fn sub(ptree: &mut Ptree) {
     let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
     ptree.insert(&net0);
 
-    let net128: Ipv4Net = "64.0.0.0/8".parse().unwrap();
-    ptree.insert(&net128);
-    ptree.insert(&net128);
+    let net64: Ipv4Net = "64.0.0.0/8".parse().unwrap();
+    ptree.insert(&net64);
+    ptree.insert(&net64);
 
-    ptree.delete(&net128);
+    for i in ptree.iter() {
+        println!("Iter: {}", i.prefix);
+    }
+
+    ptree.delete(&net64);
+
+    for i in ptree.iter() {
+        println!("Iter: {}", i.prefix);
+    }
 }
 
 fn main() {
     let mut ptree = Ptree { top: None };
     sub(&mut ptree);
 
-    for i in ptree.iter() {
-        println!("Iter: {}", i.prefix);
-    }
-
-    let net128: Ipv4Net = "64.0.0.0/8".parse().unwrap();
+    let net128: Ipv4Net = "128.0.0.0/8".parse().unwrap();
     let node = Rc::new(Node::new(&net128));
     println!("{:?}", node);
 }
