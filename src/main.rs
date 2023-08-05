@@ -136,8 +136,7 @@ struct Node<D> {
     prefix: Ipv4Net,
     parent: RefCell<Option<Rc<Node<D>>>>,
     children: [RefCell<Option<Rc<Node<D>>>>; 2],
-    #[allow(dead_code)]
-    data: Option<D>,
+    data: RefCell<Option<D>>,
 }
 
 fn node_match_prefix<D>(node: Option<Rc<Node<D>>>, prefix: &Ipv4Net) -> bool {
@@ -161,7 +160,7 @@ struct Ptree<D> {
 }
 
 impl<D> Ptree<D> {
-    fn insert(&mut self, prefix: &Ipv4Net, _data: D) {
+    fn insert(&mut self, prefix: &Ipv4Net) -> NodeIter<D> {
         let mut cursor = self.top.clone();
         let mut matched: Option<Rc<Node<D>>> = None;
         let mut new_node: Rc<Node<D>>;
@@ -169,8 +168,7 @@ impl<D> Ptree<D> {
         while node_match_prefix(cursor.clone(), prefix) {
             let node = cursor.clone().unwrap();
             if node.prefix.prefix_len() == prefix.prefix_len() {
-                println!("Same prefix already exists");
-                return;
+                return NodeIter::from_node(node);
             }
             matched = Some(node.clone());
             cursor = node.child_with(prefix.bit_at(node.prefix.prefix_len()));
@@ -208,6 +206,7 @@ impl<D> Ptree<D> {
                 }
             }
         }
+        NodeIter::from_node(new_node)
     }
 
     fn lookup_exact(&self, prefix: &Ipv4Net) -> NodeIter<D> {
@@ -224,8 +223,7 @@ impl<D> Ptree<D> {
         NodeIter { node: None }
     }
 
-    fn delete(&mut self, prefix: &Ipv4Net) {
-        let iter = self.lookup_exact(prefix);
+    fn erase(&mut self, iter: NodeIter<D>) {
         if let Some(node) = iter.node {
             let has_left = node.child(NodeChild::Left).is_some();
             let has_right = node.child(NodeChild::Right).is_some();
@@ -234,17 +232,14 @@ impl<D> Ptree<D> {
                 return;
             }
 
-            // NodeChild
             let child = if has_left {
                 node.child(NodeChild::Left)
             } else {
                 node.child(NodeChild::Right)
             };
 
-            // Parent
             let parent = node.parent();
 
-            // Replace child's parent.
             if let Some(child) = child.clone() {
                 child.parent.replace(parent.clone());
             }
@@ -260,12 +255,18 @@ impl<D> Ptree<D> {
                         parent.children[NodeChild::Right as usize].replace(child.clone());
                     }
                 }
+                if !parent.is_occupied() {
+                    self.erase(NodeIter::from_node(parent));
+                }
             } else {
                 self.top = child.clone();
             }
-        } else {
-            println!("Delete: node not found");
         }
+    }
+
+    fn delete(&mut self, prefix: &Ipv4Net) {
+        let iter = self.lookup_exact(prefix);
+        self.erase(iter);
     }
 
     fn iter(&self) -> NodeIter<D> {
@@ -292,17 +293,7 @@ impl<D> Node<D> {
             prefix: prefix.clone(),
             parent: RefCell::new(None),
             children: [RefCell::new(None), RefCell::new(None)],
-            data: None,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn new2(prefix: &Ipv4Net, data: D) -> Self {
-        Node {
-            prefix: prefix.clone(),
-            parent: RefCell::new(None),
-            children: [RefCell::new(None), RefCell::new(None)],
-            data: Some(data),
+            data: RefCell::new(None),
         }
     }
 
@@ -329,6 +320,31 @@ impl<D> Node<D> {
 
     fn set_child_at(&self, child: Rc<Node<D>>, bit: u8) {
         self.children[bit as usize].borrow_mut().replace(child);
+    }
+
+    fn set_data(&self, data: D) {
+        self.data.replace(Some(data));
+    }
+
+    fn has_data(&self) -> bool {
+        if self.data.borrow().is_some() {
+            true
+        } else {
+            false
+        }
+    }
+
+    #[allow(dead_code)]
+    fn is_occupied(&self) -> bool {
+        if self.has_data() {
+            true
+        } else if self.children[NodeChild::Left as usize].borrow().is_some() {
+            true
+        } else if self.children[NodeChild::Right as usize].borrow().is_some() {
+            true
+        } else {
+            false
+        }
     }
 
     fn eq(lhs: &Self, rhs: &Self) -> bool {
@@ -365,7 +381,6 @@ impl<D> Node<D> {
         None
     }
 }
-
 struct NodeIter<D> {
     node: Option<Rc<Node<D>>>,
 }
@@ -395,9 +410,9 @@ impl<D> Iterator for NodeIter<D> {
 
 fn top() {
     println!("--top--");
-    let mut ptree = Ptree { top: None };
+    let mut ptree = Ptree::<u32> { top: None };
     let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
-    ptree.insert(&net0, 1);
+    ptree.insert(&net0);
 
     for i in ptree.iter() {
         println!("Iter: {}", i.prefix);
@@ -412,12 +427,12 @@ fn top() {
 
 fn mask() {
     println!("--mask--");
-    let mut ptree = Ptree { top: None };
+    let mut ptree = Ptree::<u32> { top: None };
     let net0: Ipv4Net = "0.0.0.0/32".parse().unwrap();
-    ptree.insert(&net0, 10);
+    ptree.insert(&net0);
 
     let net128: Ipv4Net = "128.0.0.0/32".parse().unwrap();
-    ptree.insert(&net128, 12);
+    ptree.insert(&net128);
 
     for i in ptree.iter() {
         println!("Iter: {}", i.prefix);
@@ -434,11 +449,11 @@ fn mask() {
 fn sub(ptree: &mut Ptree<u32>) {
     println!("--sub--");
     let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
-    ptree.insert(&net0, 1);
+    ptree.insert(&net0);
 
     let net64: Ipv4Net = "64.0.0.0/8".parse().unwrap();
-    ptree.insert(&net64, 2);
-    ptree.insert(&net64, 3);
+    ptree.insert(&net64);
+    ptree.insert(&net64);
 
     for i in ptree.iter() {
         println!("Iter: {}", i.prefix);
@@ -457,9 +472,23 @@ fn sub(ptree: &mut Ptree<u32>) {
     }
 }
 
+fn data() {
+    println!("--data--");
+    let mut ptree = Ptree { top: None };
+    let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
+    ptree.insert(&net0);
+
+    let it = ptree.lookup_exact(&net0);
+    if let Some(node) = it.node {
+        println!("node is found");
+        node.set_data(100);
+    }
+}
+
 fn main() {
     top();
     mask();
+    data();
 
     let mut ptree = Ptree { top: None };
     sub(&mut ptree);
