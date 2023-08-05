@@ -264,6 +264,13 @@ impl<D> Ptree<D> {
         }
     }
 
+    fn add(&mut self, prefix: &Ipv4Net, data: D) {
+        let it = self.insert(prefix);
+        if let Some(node) = it.node {
+            node.set_data(data);
+        }
+    }
+
     fn delete(&mut self, prefix: &Ipv4Net) {
         let iter = self.lookup_exact(prefix);
         self.erase(iter);
@@ -408,75 +415,71 @@ impl<D> Iterator for NodeIter<D> {
     }
 }
 
+fn iter(ptree: &Ptree<u32>) {
+    for i in ptree.iter() {
+        if i.data.borrow().is_some() {
+            println!("Iter: {} [{}]", i.prefix, i.data.borrow().unwrap());
+        } else {
+            println!("Iter: {} [N/A]", i.prefix);
+        }
+    }
+}
+
 fn top() {
     println!("--top--");
     let mut ptree = Ptree::<u32> { top: None };
     let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
-    ptree.insert(&net0);
+    ptree.add(&net0, 1);
 
-    for i in ptree.iter() {
-        println!("Iter: {}", i.prefix);
-    }
+    iter(&ptree);
 
     ptree.delete(&net0);
 
-    for i in ptree.iter() {
-        println!("Iter: {}", i.prefix);
-    }
+    iter(&ptree);
 }
 
 fn mask() {
     println!("--mask--");
     let mut ptree = Ptree::<u32> { top: None };
     let net0: Ipv4Net = "0.0.0.0/32".parse().unwrap();
-    ptree.insert(&net0);
+    ptree.add(&net0, 1);
 
     let net128: Ipv4Net = "128.0.0.0/32".parse().unwrap();
-    ptree.insert(&net128);
+    ptree.add(&net128, 128);
 
-    for i in ptree.iter() {
-        println!("Iter: {}", i.prefix);
-    }
+    iter(&ptree);
 
     ptree.delete(&net128);
     ptree.delete(&net0);
 
-    for i in ptree.iter() {
-        println!("Iter: {}", i.prefix);
-    }
+    iter(&ptree);
 }
 
 fn sub(ptree: &mut Ptree<u32>) {
     println!("--sub--");
     let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
-    ptree.insert(&net0);
+    ptree.add(&net0, 1);
 
     let net64: Ipv4Net = "64.0.0.0/8".parse().unwrap();
-    ptree.insert(&net64);
-    ptree.insert(&net64);
+    ptree.add(&net64, 64);
+    ptree.add(&net64, 64);
 
-    for i in ptree.iter() {
-        println!("Iter: {}", i.prefix);
-    }
+    iter(&ptree);
 
     ptree.delete(&net64);
 
-    for i in ptree.iter() {
-        println!("Iter: {}", i.prefix);
-    }
+    iter(&ptree);
 
     ptree.delete(&net0);
 
-    for i in ptree.iter() {
-        println!("Iter: {}", i.prefix);
-    }
+    iter(&ptree);
 }
 
 fn data() {
     println!("--data--");
     let mut ptree = Ptree { top: None };
     let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
-    ptree.insert(&net0);
+    ptree.add(&net0, 1);
 
     let it = ptree.lookup_exact(&net0);
     if let Some(node) = it.node {
