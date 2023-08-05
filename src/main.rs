@@ -4,6 +4,8 @@ use std::rc::Rc;
 
 use ipnet::Ipv4Net;
 
+const MASK_BITS: [u8; 9] = [0x00, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff];
+
 const IPV4_MASK: [[u8; 4]; 33] = [
     [0x00, 0x00, 0x00, 0x00],
     [0x80, 0x00, 0x00, 0x00],
@@ -39,8 +41,6 @@ const IPV4_MASK: [[u8; 4]; 33] = [
     [0xff, 0xff, 0xff, 0xfe],
     [0xff, 0xff, 0xff, 0xff],
 ];
-
-const MASK_BITS: [u8; 9] = [0x00, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff];
 
 trait Prefix {
     fn to_masked(&self) -> Self;
@@ -210,7 +210,6 @@ impl Ptree {
         }
     }
 
-    #[allow(dead_code)]
     fn lookup_exact(&self, prefix: &Ipv4Net) -> NodeIter {
         let mut cursor = self.top.clone();
 
@@ -228,51 +227,40 @@ impl Ptree {
     fn delete(&mut self, prefix: &Ipv4Net) {
         let iter = self.lookup_exact(prefix);
         if let Some(node) = iter.node {
-            println!("Delete: {}, count {}", node.prefix, Rc::strong_count(&node));
-            let has_left = node.child(Child::Left).is_some();
-            let has_right = node.child(Child::Right).is_some();
+            let has_left = node.child(NodeChild::Left).is_some();
+            let has_right = node.child(NodeChild::Right).is_some();
 
             if has_left && has_right {
                 return;
             }
 
-            // Child
+            // NodeChild
             let child = if has_left {
-                node.child(Child::Left)
+                node.child(NodeChild::Left)
             } else {
-                node.child(Child::Right)
+                node.child(NodeChild::Right)
             };
 
             // Parent
             let parent = node.parent();
 
-            // Replace child's parent. TODO: when only top node exists.
+            // Replace child's parent.
             if let Some(child) = child.clone() {
                 child.parent.replace(parent.clone());
             }
 
-            if let Some(p) = parent {
-                println!("Parent: {}", p.prefix);
-                if let Some(left) = p.child(Child::Left) {
+            if let Some(parent) = parent {
+                if let Some(left) = parent.child(NodeChild::Left) {
                     if Node::eq(left.as_ref(), node.as_ref()) {
-                        println!("Parent: left points out me");
-                        p.children[Child::Left as usize].replace(child.clone());
+                        parent.children[NodeChild::Left as usize].replace(child.clone());
                     }
-                    println!("Parent: left exists {}", left.prefix);
-                } else {
-                    println!("Parent: left does not exists");
                 }
-                if let Some(right) = p.child(Child::Right) {
+                if let Some(right) = parent.child(NodeChild::Right) {
                     if Node::eq(right.as_ref(), node.as_ref()) {
-                        println!("Parent: right points out me");
-                        p.children[Child::Right as usize].replace(child.clone());
+                        parent.children[NodeChild::Right as usize].replace(child.clone());
                     }
-                    println!("Parent: right exists {}", right.prefix);
-                } else {
-                    println!("Parent: right does not exists");
                 }
             } else {
-                // Parent is empty.
                 self.top = child.clone();
             }
         } else {
@@ -293,7 +281,7 @@ impl Drop for Node {
     }
 }
 
-enum Child {
+enum NodeChild {
     Left = 0,
     Right = 1,
 }
@@ -312,7 +300,7 @@ impl Node {
         self.parent.borrow().clone()
     }
 
-    fn child(&self, bit: Child) -> Option<Rc<Node>> {
+    fn child(&self, bit: NodeChild) -> Option<Rc<Node>> {
         self.children[bit as usize].borrow().clone()
     }
 
@@ -338,24 +326,24 @@ impl Node {
     }
 
     fn next(&self) -> Option<Rc<Node>> {
-        if let Some(node) = self.child(Child::Left) {
+        if let Some(node) = self.child(NodeChild::Left) {
             return Some(node.clone());
-        } else if let Some(node) = self.child(Child::Right) {
+        } else if let Some(node) = self.child(NodeChild::Right) {
             return Some(node.clone());
         } else {
             if let Some(parent) = self.parent() {
-                if let Some(left) = parent.child(Child::Left) {
+                if let Some(left) = parent.child(NodeChild::Left) {
                     if Node::eq(left.as_ref(), self) {
-                        if let Some(right) = parent.child(Child::Right) {
+                        if let Some(right) = parent.child(NodeChild::Right) {
                             return Some(right.clone());
                         }
                     }
                 }
                 let mut cursor = parent;
                 while let Some(parent) = cursor.parent() {
-                    if let Some(left) = parent.child(Child::Left) {
+                    if let Some(left) = parent.child(NodeChild::Left) {
                         if Node::eq(left.as_ref(), cursor.as_ref()) {
-                            if let Some(right) = parent.child(Child::Right) {
+                            if let Some(right) = parent.child(NodeChild::Right) {
                                 return Some(right.clone());
                             }
                         }
@@ -395,7 +383,46 @@ impl Iterator for NodeIter {
     }
 }
 
+fn top() {
+    println!("--top--");
+    let mut ptree = Ptree { top: None };
+    let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
+    ptree.insert(&net0);
+
+    for i in ptree.iter() {
+        println!("Iter: {}", i.prefix);
+    }
+
+    ptree.delete(&net0);
+
+    for i in ptree.iter() {
+        println!("Iter: {}", i.prefix);
+    }
+}
+
+fn mask() {
+    println!("--mask--");
+    let mut ptree = Ptree { top: None };
+    let net0: Ipv4Net = "0.0.0.0/32".parse().unwrap();
+    ptree.insert(&net0);
+
+    let net128: Ipv4Net = "128.0.0.0/32".parse().unwrap();
+    ptree.insert(&net128);
+
+    for i in ptree.iter() {
+        println!("Iter: {}", i.prefix);
+    }
+
+    ptree.delete(&net128);
+    ptree.delete(&net0);
+
+    for i in ptree.iter() {
+        println!("Iter: {}", i.prefix);
+    }
+}
+
 fn sub(ptree: &mut Ptree) {
+    println!("--sub--");
     let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
     ptree.insert(&net0);
 
@@ -412,15 +439,26 @@ fn sub(ptree: &mut Ptree) {
     for i in ptree.iter() {
         println!("Iter: {}", i.prefix);
     }
+
+    ptree.delete(&net0);
+
+    for i in ptree.iter() {
+        println!("Iter: {}", i.prefix);
+    }
 }
 
 fn main() {
+    top();
+    mask();
+
     let mut ptree = Ptree { top: None };
     sub(&mut ptree);
-
-    let net128: Ipv4Net = "128.0.0.0/8".parse().unwrap();
-    let node = Rc::new(Node::new(&net128));
-    println!("{:?}", node);
+    {
+        println!("--drop--");
+        let net128: Ipv4Net = "128.0.0.0/8".parse().unwrap();
+        let node = Rc::new(Node::new(&net128));
+        println!("{:?}", node);
+    }
 }
 
 #[cfg(test)]
