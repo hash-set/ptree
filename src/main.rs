@@ -209,6 +209,7 @@ impl<D> Ptree<D> {
         NodeIter::from_node(new_node)
     }
 
+    #[allow(dead_code)]
     fn lookup(&self, prefix: &Ipv4Net) -> NodeIter<D> {
         let mut cursor = self.top.clone();
         let mut matched: Option<Rc<Node<D>>> = None;
