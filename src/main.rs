@@ -209,6 +209,29 @@ impl<D> Ptree<D> {
         NodeIter::from_node(new_node)
     }
 
+    fn lookup(&self, prefix: &Ipv4Net) -> NodeIter<D> {
+        let mut cursor = self.top.clone();
+        let mut matched: Option<Rc<Node<D>>> = None;
+
+        while node_match_prefix(cursor.clone(), prefix) {
+            let node = cursor.clone().unwrap();
+            if node.has_data() {
+                matched = Some(node.clone());
+            }
+
+            if node.prefix.prefix_len() == prefix.prefix_len() {
+                break;
+            }
+            cursor = node.child_with(prefix.bit_at(node.prefix.prefix_len()));
+        }
+
+        if matched.is_some() {
+            NodeIter::from_node(matched.unwrap())
+        } else {
+            NodeIter { node: None }
+        }
+    }
+
     fn lookup_exact(&self, prefix: &Ipv4Net) -> NodeIter<D> {
         let mut cursor = self.top.clone();
 
@@ -216,7 +239,11 @@ impl<D> Ptree<D> {
             let node = cursor.clone().unwrap();
 
             if node.prefix.prefix_len() == prefix.prefix_len() {
-                return NodeIter::from_node(node);
+                if node.has_data() {
+                    return NodeIter::from_node(node);
+                } else {
+                    break;
+                }
             }
             cursor = node.child_with(prefix.bit_at(node.prefix.prefix_len()));
         }
