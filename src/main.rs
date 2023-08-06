@@ -325,7 +325,7 @@ enum NodeChild {
 impl<D> Node<D> {
     pub fn new(prefix: &Ipv4Net) -> Self {
         Node {
-            prefix: prefix.clone(),
+            prefix: *prefix,
             parent: RefCell::new(None),
             children: [RefCell::new(None), RefCell::new(None)],
             data: RefCell::new(None),
@@ -362,11 +362,7 @@ impl<D> Node<D> {
     }
 
     fn has_data(&self) -> bool {
-        if self.data.borrow().is_some() {
-            true
-        } else {
-            false
-        }
+        self.data.borrow().is_some()
     }
 
     #[allow(dead_code)]
@@ -375,15 +371,11 @@ impl<D> Node<D> {
             true
         } else if self.children[NodeChild::Left as usize].borrow().is_some() {
             true
-        } else if self.children[NodeChild::Right as usize].borrow().is_some() {
-            true
-        } else {
-            false
-        }
+        } else { self.children[NodeChild::Right as usize].borrow().is_some() }
     }
 
     fn eq(lhs: &Self, rhs: &Self) -> bool {
-        lhs as *const _ == rhs as *const _
+        std::ptr::eq(lhs, rhs)
     }
 
     fn next(&self) -> Option<Rc<Node<D>>> {
@@ -391,26 +383,24 @@ impl<D> Node<D> {
             return Some(node.clone());
         } else if let Some(node) = self.child(NodeChild::Right) {
             return Some(node.clone());
-        } else {
-            if let Some(parent) = self.parent() {
+        } else if let Some(parent) = self.parent() {
+            if let Some(left) = parent.child(NodeChild::Left) {
+                if Node::eq(left.as_ref(), self) {
+                    if let Some(right) = parent.child(NodeChild::Right) {
+                        return Some(right.clone());
+                    }
+                }
+            }
+            let mut cursor = parent;
+            while let Some(parent) = cursor.parent() {
                 if let Some(left) = parent.child(NodeChild::Left) {
-                    if Node::eq(left.as_ref(), self) {
+                    if Node::eq(left.as_ref(), cursor.as_ref()) {
                         if let Some(right) = parent.child(NodeChild::Right) {
                             return Some(right.clone());
                         }
                     }
                 }
-                let mut cursor = parent;
-                while let Some(parent) = cursor.parent() {
-                    if let Some(left) = parent.child(NodeChild::Left) {
-                        if Node::eq(left.as_ref(), cursor.as_ref()) {
-                            if let Some(right) = parent.child(NodeChild::Right) {
-                                return Some(right.clone());
-                            }
-                        }
-                    }
-                    cursor = parent;
-                }
+                cursor = parent;
             }
         }
         None
@@ -492,15 +482,15 @@ fn sub(ptree: &mut Ptree<u32>) {
     ptree.add(&net64, 64);
     ptree.add(&net64, 64);
 
-    iter(&ptree);
+    iter(ptree);
 
     ptree.delete(&net64);
 
-    iter(&ptree);
+    iter(ptree);
 
     ptree.delete(&net0);
 
-    iter(&ptree);
+    iter(ptree);
 }
 
 fn data() {
@@ -573,7 +563,7 @@ mod tests {
         let net10_8: Ipv4Net = "10.0.0.0/8".parse().unwrap();
         let net10_16: Ipv4Net = "10.0.0.0/16".parse().unwrap();
         let net127_8: Ipv4Net = "127.0.0.0/8".parse().unwrap();
-        assert_eq!(net10_8.contains(&net10_16), true);
-        assert_eq!(net10_8.contains(&net127_8), false);
+        assert!(net10_8.contains(&net10_16));
+        assert!(!net10_8.contains(&net127_8));
     }
 }
