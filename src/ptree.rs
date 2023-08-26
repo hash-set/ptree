@@ -209,8 +209,7 @@ impl<D> Ptree<D> {
         NodeIter::from_node(new_node)
     }
 
-    #[allow(dead_code)]
-    fn lookup(&self, prefix: &Ipv4Net) -> NodeIter<D> {
+    pub fn lookup(&self, prefix: &Ipv4Net) -> NodeIter<D> {
         let mut cursor = self.top.clone();
         let mut matched: Option<Rc<Node<D>>> = None;
 
@@ -226,8 +225,8 @@ impl<D> Ptree<D> {
             cursor = node.child_with(prefix.bit_at(node.prefix.prefix_len()));
         }
 
-        if matched.is_some() {
-            NodeIter::from_node(matched.unwrap())
+        if let Some(m) = matched {
+            NodeIter::from_node(m)
         } else {
             NodeIter { node: None }
         }
@@ -365,15 +364,16 @@ impl<D> Node<D> {
         self.data.borrow().is_some()
     }
 
-    #[allow(dead_code)]
+    fn has_left(&self) -> bool {
+        self.children[NodeChild::Left as usize].borrow().is_some()
+    }
+
+    fn has_right(&self) -> bool {
+        self.children[NodeChild::Right as usize].borrow().is_some()
+    }
+
     fn is_occupied(&self) -> bool {
-        if self.has_data() {
-            true
-        } else if self.children[NodeChild::Left as usize].borrow().is_some() {
-            true
-        } else {
-            self.children[NodeChild::Right as usize].borrow().is_some()
-        }
+        self.has_data() || self.has_left() || self.has_right()
     }
 
     fn eq(lhs: &Self, rhs: &Self) -> bool {
