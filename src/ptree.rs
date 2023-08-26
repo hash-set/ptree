@@ -132,7 +132,7 @@ impl Prefix for Ipv4Net {
 }
 
 #[derive(Debug)]
-struct Node<D> {
+pub struct Node<D> {
     prefix: Ipv4Net,
     parent: RefCell<Option<Rc<Node<D>>>>,
     children: [RefCell<Option<Rc<Node<D>>>>; 2],
@@ -155,12 +155,12 @@ fn set_child<D>(parent: Rc<Node<D>>, child: Rc<Node<D>>) {
 }
 
 #[derive(Debug)]
-struct Ptree<D> {
+pub struct Ptree<D> {
     top: Option<Rc<Node<D>>>,
 }
 
 impl<D> Ptree<D> {
-    fn insert(&mut self, prefix: &Ipv4Net) -> NodeIter<D> {
+    pub fn insert(&mut self, prefix: &Ipv4Net) -> NodeIter<D> {
         let mut cursor = self.top.clone();
         let mut matched: Option<Rc<Node<D>>> = None;
         let mut new_node: Rc<Node<D>>;
@@ -233,7 +233,7 @@ impl<D> Ptree<D> {
         }
     }
 
-    fn lookup_exact(&self, prefix: &Ipv4Net) -> NodeIter<D> {
+    pub fn lookup_exact(&self, prefix: &Ipv4Net) -> NodeIter<D> {
         let mut cursor = self.top.clone();
 
         while node_match_prefix(cursor.clone(), prefix) {
@@ -292,19 +292,19 @@ impl<D> Ptree<D> {
         }
     }
 
-    fn add(&mut self, prefix: &Ipv4Net, data: D) {
+    pub fn add(&mut self, prefix: &Ipv4Net, data: D) {
         let it = self.insert(prefix);
         if let Some(node) = it.node {
             node.set_data(data);
         }
     }
 
-    fn delete(&mut self, prefix: &Ipv4Net) {
+    pub fn delete(&mut self, prefix: &Ipv4Net) {
         let iter = self.lookup_exact(prefix);
         self.erase(iter);
     }
 
-    fn iter(&self) -> NodeIter<D> {
+    pub fn iter(&self) -> NodeIter<D> {
         NodeIter {
             node: self.top.clone(),
         }
@@ -371,7 +371,9 @@ impl<D> Node<D> {
             true
         } else if self.children[NodeChild::Left as usize].borrow().is_some() {
             true
-        } else { self.children[NodeChild::Right as usize].borrow().is_some() }
+        } else {
+            self.children[NodeChild::Right as usize].borrow().is_some()
+        }
     }
 
     fn eq(lhs: &Self, rhs: &Self) -> bool {
@@ -406,7 +408,8 @@ impl<D> Node<D> {
         None
     }
 }
-struct NodeIter<D> {
+
+pub struct NodeIter<D> {
     node: Option<Rc<Node<D>>>,
 }
 
@@ -430,94 +433,6 @@ impl<D> Iterator for NodeIter<D> {
         } else {
             None
         }
-    }
-}
-
-fn iter(ptree: &Ptree<u32>) {
-    for i in ptree.iter() {
-        if i.data.borrow().is_some() {
-            println!("Iter: {} [{}]", i.prefix, i.data.borrow().unwrap());
-        } else {
-            println!("Iter: {} [N/A]", i.prefix);
-        }
-    }
-}
-
-fn top() {
-    println!("--top--");
-    let mut ptree = Ptree::<u32> { top: None };
-    let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
-    ptree.add(&net0, 1);
-
-    iter(&ptree);
-
-    ptree.delete(&net0);
-
-    iter(&ptree);
-}
-
-fn mask() {
-    println!("--mask--");
-    let mut ptree = Ptree::<u32> { top: None };
-    let net0: Ipv4Net = "0.0.0.0/32".parse().unwrap();
-    ptree.add(&net0, 1);
-
-    let net128: Ipv4Net = "128.0.0.0/32".parse().unwrap();
-    ptree.add(&net128, 128);
-
-    iter(&ptree);
-
-    ptree.delete(&net128);
-    ptree.delete(&net0);
-
-    iter(&ptree);
-}
-
-fn sub(ptree: &mut Ptree<u32>) {
-    println!("--sub--");
-    let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
-    ptree.add(&net0, 1);
-
-    let net64: Ipv4Net = "64.0.0.0/8".parse().unwrap();
-    ptree.add(&net64, 64);
-    ptree.add(&net64, 64);
-
-    iter(ptree);
-
-    ptree.delete(&net64);
-
-    iter(ptree);
-
-    ptree.delete(&net0);
-
-    iter(ptree);
-}
-
-fn data() {
-    println!("--data--");
-    let mut ptree = Ptree { top: None };
-    let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
-    ptree.add(&net0, 1);
-
-    let it = ptree.lookup_exact(&net0);
-    if let Some(node) = it.node {
-        println!("node is found");
-        node.set_data(100);
-    }
-}
-
-fn main() {
-    top();
-    mask();
-    data();
-
-    let mut ptree = Ptree { top: None };
-    sub(&mut ptree);
-    {
-        println!("--drop--");
-        let net128: Ipv4Net = "128.0.0.0/8".parse().unwrap();
-        let node = Rc::new(Node::<u32>::new(&net128));
-        println!("{:?}", node);
     }
 }
 
