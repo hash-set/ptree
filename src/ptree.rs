@@ -312,6 +312,16 @@ impl<D> Ptree<D> {
             node: self.top.clone(),
         }
     }
+
+    pub fn route_ipv4_add(&mut self, str: &str, data: D) {
+        let prefix: Ipv4Net = str.parse().unwrap();
+        self.add(&prefix, data);
+    }
+
+    pub fn route_ipv4_delete(&mut self, str: &str) {
+        let prefix: Ipv4Net = str.parse().unwrap();
+        self.delete(&prefix);
+    }
 }
 
 impl<D> Drop for Node<D> {

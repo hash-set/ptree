@@ -86,3 +86,45 @@ fn test_drop() {
     ptree.add(&net128, 128);
     println!("{:?}", node);
 }
+
+#[test]
+fn ipv4_iter_count() {
+    let mut top = Ptree::new();
+
+    top.route_ipv4_add("0.0.0.0/0", 0);
+    top.route_ipv4_add("0.0.0.0/1", 1);
+    top.route_ipv4_add("128.0.0.0/1", 1);
+
+    top.route_ipv4_add("0.0.0.0/2", 2);
+    top.route_ipv4_add("64.0.0.0/2", 2);
+    top.route_ipv4_add("128.0.0.0/2", 2);
+    top.route_ipv4_add("192.0.0.0/2", 2);
+
+    top.route_ipv4_add("0.0.0.0/3", 3);
+    top.route_ipv4_add("32.0.0.0/3", 3);
+    top.route_ipv4_add("64.0.0.0/3", 3);
+    top.route_ipv4_add("96.0.0.0/3", 3);
+    top.route_ipv4_add("128.0.0.0/3", 3);
+    top.route_ipv4_add("160.0.0.0/3", 3);
+    top.route_ipv4_add("192.0.0.0/3", 3);
+    top.route_ipv4_add("224.0.0.0/3", 3);
+
+    top.route_ipv4_add("0.0.0.0/4", 4);
+    top.route_ipv4_add("32.0.0.0/4", 4);
+    top.route_ipv4_add("64.0.0.0/4", 4);
+    top.route_ipv4_add("96.0.0.0/4", 4);
+    top.route_ipv4_add("128.0.0.0/4", 4);
+    top.route_ipv4_add("160.0.0.0/4", 4);
+    top.route_ipv4_add("192.0.0.0/4", 4);
+    top.route_ipv4_add("224.0.0.0/4", 4);
+    top.route_ipv4_add("16.0.0.0/4", 4);
+    top.route_ipv4_add("48.0.0.0/4", 4);
+    top.route_ipv4_add("89.0.0.0/4", 4);
+    top.route_ipv4_add("112.0.0.0/4", 4);
+    top.route_ipv4_add("144.0.0.0/4", 4);
+    top.route_ipv4_add("176.0.0.0/4", 4);
+    top.route_ipv4_add("208.0.0.0/4", 4);
+    top.route_ipv4_add("240.0.0.0/4", 4);
+
+    assert_eq!(top.iter().count(), 31);
+}
