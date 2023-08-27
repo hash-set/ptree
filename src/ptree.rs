@@ -133,10 +133,10 @@ impl Prefix for Ipv4Net {
 
 #[derive(Debug)]
 pub struct Node<D> {
-    prefix: Ipv4Net,
+    pub prefix: Ipv4Net,
+    pub data: RefCell<Option<D>>,
     parent: RefCell<Option<Rc<Node<D>>>>,
     children: [RefCell<Option<Rc<Node<D>>>>; 2],
-    data: RefCell<Option<D>>,
 }
 
 fn node_match_prefix<D>(node: Option<Rc<Node<D>>>, prefix: &Ipv4Net) -> bool {
@@ -160,6 +160,10 @@ pub struct Ptree<D> {
 }
 
 impl<D> Ptree<D> {
+    pub fn new() -> Self {
+        Self { top: None }
+    }
+
     pub fn insert(&mut self, prefix: &Ipv4Net) -> NodeIter<D> {
         let mut cursor = self.top.clone();
         let mut matched: Option<Rc<Node<D>>> = None;
@@ -356,7 +360,7 @@ impl<D> Node<D> {
         self.children[bit as usize].borrow_mut().replace(child);
     }
 
-    fn set_data(&self, data: D) {
+    pub fn set_data(&self, data: D) {
         self.data.replace(Some(data));
     }
 
@@ -410,7 +414,7 @@ impl<D> Node<D> {
 }
 
 pub struct NodeIter<D> {
-    node: Option<Rc<Node<D>>>,
+    pub node: Option<Rc<Node<D>>>,
 }
 
 impl<D> NodeIter<D> {

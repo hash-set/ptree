@@ -1,4 +1,6 @@
+use ipnet::Ipv4Net;
 use ptree::*;
+use std::rc::Rc;
 
 fn iter(ptree: &Ptree<u32>) {
     for i in ptree.iter() {
@@ -10,9 +12,11 @@ fn iter(ptree: &Ptree<u32>) {
     }
 }
 
-fn top() {
+#[test]
+#[ignore]
+fn test_top() {
     println!("--top--");
-    let mut ptree = Ptree::<u32> { top: None };
+    let mut ptree = Ptree::<u32>::new();
     let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
     ptree.add(&net0, 1);
 
@@ -23,9 +27,11 @@ fn top() {
     iter(&ptree);
 }
 
-fn mask() {
+#[test]
+#[ignore]
+fn test_mask() {
     println!("--mask--");
-    let mut ptree = Ptree::<u32> { top: None };
+    let mut ptree = Ptree::<u32>::new();
     let net0: Ipv4Net = "0.0.0.0/32".parse().unwrap();
     ptree.add(&net0, 1);
 
@@ -40,7 +46,10 @@ fn mask() {
     iter(&ptree);
 }
 
-fn sub(ptree: &mut Ptree<u32>) {
+#[test]
+#[ignore]
+fn test_sub() {
+    let mut ptree = Ptree::<u32>::new();
     println!("--sub--");
     let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
     ptree.add(&net0, 1);
@@ -49,20 +58,15 @@ fn sub(ptree: &mut Ptree<u32>) {
     ptree.add(&net64, 64);
     ptree.add(&net64, 64);
 
-    iter(ptree);
-
     ptree.delete(&net64);
-
-    iter(ptree);
-
     ptree.delete(&net0);
-
-    iter(ptree);
 }
 
-fn data() {
+#[test]
+#[ignore]
+fn test_data() {
     println!("--data--");
-    let mut ptree = Ptree { top: None };
+    let mut ptree = Ptree::new();
     let net0: Ipv4Net = "0.0.0.0/8".parse().unwrap();
     ptree.add(&net0, 1);
 
@@ -73,17 +77,12 @@ fn data() {
     }
 }
 
-fn main() {
-    top();
-    mask();
-    data();
-
-    let mut ptree = Ptree { top: None };
-    sub(&mut ptree);
-    {
-        println!("--drop--");
-        let net128: Ipv4Net = "128.0.0.0/8".parse().unwrap();
-        let node = Rc::new(Node::<u32>::new(&net128));
-        println!("{:?}", node);
-    }
+#[test]
+fn test_drop() {
+    let mut ptree = Ptree::new();
+    println!("--drop--");
+    let net128: Ipv4Net = "128.0.0.0/8".parse().unwrap();
+    let node = Rc::new(Node::<u32>::new(&net128));
+    ptree.add(&net128, 128);
+    println!("{:?}", node);
 }
