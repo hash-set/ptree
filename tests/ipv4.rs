@@ -130,7 +130,6 @@ fn ipv4_iter_count() {
 }
 
 #[test]
-#[ignore]
 fn ipv4_iter_count_delete() {
     let mut top = Ptree::new();
 
@@ -219,18 +218,9 @@ fn ipv4_tree_test() {
     top.route_ipv4_add("0.0.0.0/1", 1);
     top.route_ipv4_add("128.0.0.0/1", 1);
 
-    // top.route_ipv4_add("0.0.0.0/2", 2);
-    // top.route_ipv4_add("64.0.0.0/2", 2);
-    // top.route_ipv4_add("128.0.0.0/2", 2);
-    // top.route_ipv4_add("192.0.0.0/2", 2);
-
     top.route_ipv4_delete("0.0.0.0/0");
     top.route_ipv4_delete("0.0.0.0/1");
     top.route_ipv4_delete("128.0.0.0/1");
 
-    println!("--");
-    for i in top.node_iter() {
-        println!("{}", i.prefix);
-    }
-    println!("--");
+    assert_eq!(top.iter().count(), 0);
 }

@@ -260,6 +260,7 @@ impl<D> Ptree<D> {
             let has_right = node.child(NodeChild::Right).is_some();
 
             if has_left && has_right {
+                node.unset_data();
                 return;
             }
 
@@ -332,7 +333,7 @@ impl<D> Ptree<D> {
 
 impl<D> Drop for Node<D> {
     fn drop(&mut self) {
-        println!("Dropping: {}", self.prefix);
+        // println!("Dropping: {}", self.prefix);
     }
 }
 
@@ -378,6 +379,10 @@ impl<D> Node<D> {
 
     pub fn set_data(&self, data: D) {
         self.data.replace(Some(data));
+    }
+
+    pub fn unset_data(&self) {
+        self.data.replace(None);
     }
 
     fn has_data(&self) -> bool {
