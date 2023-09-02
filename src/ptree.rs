@@ -307,8 +307,14 @@ impl<D> Ptree<D> {
         self.erase(iter);
     }
 
-    pub fn iter(&self) -> NodeIter<D> {
+    pub fn node_iter(&self) -> NodeIter<D> {
         NodeIter {
+            node: self.top.clone(),
+        }
+    }
+
+    pub fn iter(&self) -> DataIter<D> {
+        DataIter {
             node: self.top.clone(),
         }
     }
@@ -421,6 +427,19 @@ impl<D> Node<D> {
         }
         None
     }
+
+    fn next_with_data(&self) -> Option<Rc<Node<D>>> {
+        let mut next = self.next();
+
+        while let Some(node) = next {
+            if node.has_data() {
+                return Some(node);
+            }
+            next = node.next();
+        }
+
+        None
+    }
 }
 
 pub struct NodeIter<D> {
@@ -444,6 +463,35 @@ impl<D> Iterator for NodeIter<D> {
         if let Some(node) = node {
             self.node = node.next().clone();
             Some(node)
+        } else {
+            None
+        }
+    }
+}
+
+pub struct DataIter<D> {
+    pub node: Option<Rc<Node<D>>>,
+}
+
+impl<D> Iterator for DataIter<D> {
+    type Item = Rc<Node<D>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let node = self.node.clone();
+
+        if let Some(node) = node {
+            if node.has_data() {
+                self.node = node.next_with_data().clone();
+                Some(node)
+            } else {
+                let node = node.next_with_data().clone();
+                if let Some(node) = node {
+                    self.node = node.next_with_data().clone();
+                    Some(node)
+                } else {
+                    None
+                }
+            }
         } else {
             None
         }
