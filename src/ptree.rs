@@ -68,7 +68,7 @@ impl Prefix for Ipv4Net {
         let mut octets: [u8; 4] = [0; 4];
 
         let mut i: usize = 0;
-        while i < prefix1.prefix_len() as usize / 8 {
+        while i < prefix2.prefix_len() as usize / 8 {
             if octets1[i] == octets2[i] {
                 octets[i] = octets1[i];
             } else {
@@ -79,10 +79,10 @@ impl Prefix for Ipv4Net {
 
         let mut prefixlen = (i * 8) as u8;
 
-        if prefixlen != prefix1.prefix_len() {
+        if prefixlen != prefix2.prefix_len() {
             let diff = octets1[i] ^ octets2[i];
             let mut mask = 0x80u8;
-            while prefixlen < prefix1.prefix_len() && (mask & diff) == 0 {
+            while prefixlen < prefix2.prefix_len() && (mask & diff) == 0 {
                 mask >>= 1;
                 prefixlen += 1;
             }
@@ -135,8 +135,8 @@ impl Prefix for Ipv4Net {
 pub struct Node<D> {
     pub prefix: Ipv4Net,
     pub data: RefCell<Option<D>>,
-    parent: RefCell<Option<Rc<Node<D>>>>,
-    children: [RefCell<Option<Rc<Node<D>>>>; 2],
+    pub parent: RefCell<Option<Rc<Node<D>>>>,
+    pub children: [RefCell<Option<Rc<Node<D>>>>; 2],
 }
 
 fn node_match_prefix<D>(node: Option<Rc<Node<D>>>, prefix: &Ipv4Net) -> bool {
@@ -329,6 +329,18 @@ impl<D> Ptree<D> {
         let prefix: Ipv4Net = str.parse().unwrap();
         self.delete(&prefix);
     }
+
+    pub fn route_ipv4_lookup(&self, str: &str) -> Option<Rc<Node<D>>> {
+        let prefix: Ipv4Net = str.parse().unwrap();
+        let iter = self.lookup(&prefix);
+        iter.node
+    }
+
+    pub fn route_ipv4_lookup_exact(&self, str: &str) -> Option<Rc<Node<D>>> {
+        let prefix: Ipv4Net = str.parse().unwrap();
+        let iter = self.lookup_exact(&prefix);
+        iter.node
+    }
 }
 
 impl<D> Drop for Node<D> {
@@ -337,7 +349,7 @@ impl<D> Drop for Node<D> {
     }
 }
 
-enum NodeChild {
+pub enum NodeChild {
     Left = 0,
     Right = 1,
 }
@@ -356,7 +368,7 @@ impl<D> Node<D> {
         self.parent.borrow().clone()
     }
 
-    fn child(&self, bit: NodeChild) -> Option<Rc<Node<D>>> {
+    pub fn child(&self, bit: NodeChild) -> Option<Rc<Node<D>>> {
         self.children[bit as usize].borrow().clone()
     }
 

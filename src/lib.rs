@@ -1,3 +1,3 @@
-pub use self::ptree::{Node, Ptree};
+pub use self::ptree::{Node, NodeChild, Ptree};
 
 mod ptree;
