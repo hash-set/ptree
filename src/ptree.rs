@@ -90,7 +90,7 @@ impl Prefix for Ipv4Net {
         }
 
         Ipv4Net::new(
-            Ipv4Addr::new(octets[0], octets[1], octets[1], octets[3]),
+            Ipv4Addr::new(octets[0], octets[1], octets[2], octets[3]),
             prefixlen,
         )
         .unwrap()
@@ -254,6 +254,20 @@ impl<D> Ptree<D> {
         NodeIter { node: None }
     }
 
+    pub fn find(&self, prefix: &Ipv4Net) -> NodeIter<D> {
+        let mut cursor = self.top.clone();
+
+        while node_match_prefix(cursor.clone(), prefix) {
+            let node = cursor.clone().unwrap();
+
+            if node.prefix.prefix_len() == prefix.prefix_len() {
+                return NodeIter::from_node(node);
+            }
+            cursor = node.child_with(prefix.bit_at(node.prefix.prefix_len()));
+        }
+        NodeIter { node: None }
+    }
+
     fn erase(&mut self, iter: NodeIter<D>) {
         if let Some(node) = iter.node {
             let has_left = node.child(NodeChild::Left).is_some();
@@ -339,6 +353,12 @@ impl<D> Ptree<D> {
     pub fn route_ipv4_lookup_exact(&self, str: &str) -> Option<Rc<Node<D>>> {
         let prefix: Ipv4Net = str.parse().unwrap();
         let iter = self.lookup_exact(&prefix);
+        iter.node
+    }
+
+    pub fn route_ipv4_find(&self, str: &str) -> Option<Rc<Node<D>>> {
+        let prefix: Ipv4Net = str.parse().unwrap();
+        let iter = self.find(&prefix);
         iter.node
     }
 }
