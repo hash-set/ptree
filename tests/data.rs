@@ -1,9 +1,12 @@
 use ptree::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::time;
 
 #[test]
 fn ipv4_route_random1() {
+    let now = time::Instant::now();
+
     let mut top = Ptree::new();
 
     let file = File::open("tests/data/v4routes-random1.txt").unwrap();
@@ -24,4 +27,6 @@ fn ipv4_route_random1() {
     }
 
     assert_eq!(top.iter().count(), 0);
+
+    println!("Elapsed {:?}", now.elapsed());
 }
