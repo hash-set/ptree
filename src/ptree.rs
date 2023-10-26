@@ -158,7 +158,7 @@ where
 
 fn set_child<P, D>(parent: Rc<Node<P, D>>, child: Rc<Node<P, D>>)
 where
-    P: Prefix + Clone + Copy,
+    P: Prefix + Copy,
 {
     let bit = child.prefix.bit_at(parent.prefix.prefix_len());
     parent.set_child_at(child.clone(), bit);
@@ -172,7 +172,7 @@ pub struct Ptree<P, D> {
 
 impl<P, D> Ptree<P, D>
 where
-    P: Prefix + Clone + Copy,
+    P: Prefix + Copy,
 {
     pub fn new() -> Self {
         Self { top: None }
@@ -390,7 +390,7 @@ pub enum NodeChild {
 
 impl<P, D> Node<P, D>
 where
-    P: Prefix + Clone + Copy,
+    P: Prefix + Copy,
 {
     pub fn new(prefix: &P) -> Self {
         Node {
@@ -510,7 +510,7 @@ impl<P, D> NodeIter<P, D> {
 
 impl<P, D> Iterator for NodeIter<P, D>
 where
-    P: Prefix + Clone + Copy,
+    P: Prefix + Copy,
 {
     type Item = Rc<Node<P, D>>;
 
@@ -532,7 +532,7 @@ pub struct DataIter<P, D> {
 
 impl<P, D> Iterator for DataIter<P, D>
 where
-    P: Prefix + Clone + Copy,
+    P: Prefix + Copy,
 {
     type Item = Rc<Node<P, D>>;
 
