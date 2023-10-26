@@ -1,18 +1,24 @@
 use ipnet::Ipv4Net;
 use ptree::*;
 
-fn lookup_assert<D>(top: &Ptree<D>, addr: &str, route: &str) {
-    let n = top.route_ipv4_lookup(addr);
+fn lookup_assert(top: &Ptree<Ipv4Net, i32>, addr: &str, route: &str) {
+    let prefix: Ipv4Net = addr.parse().unwrap();
+    let iter = top.lookup(&prefix);
+    let n = iter.node;
+    // let n = top.route_ipv4_lookup(addr);
     let p: Ipv4Net = route.parse().unwrap();
     assert_eq!(n.unwrap().prefix, p);
 }
 
-fn lookup_assert_none<D>(top: &Ptree<D>, addr: &str) {
-    let n = top.route_ipv4_lookup(addr);
+fn lookup_assert_none(top: &Ptree<Ipv4Net, i32>, addr: &str) {
+    let prefix: Ipv4Net = addr.parse().unwrap();
+    let iter = top.lookup(&prefix);
+    let n = iter.node;
+    // let n = top.route_ipv4_lookup(addr);
     assert!(n.is_none());
 }
 
-fn lookup_test<D>(top: &Ptree<D>) {
+fn lookup_test(top: &Ptree<Ipv4Net, i32>) {
     lookup_assert(top, "10.0.0.0/32", "10.0.0.0/32");
     lookup_assert(top, "10.0.0.1/32", "10.0.0.0/31");
     lookup_assert(top, "10.0.0.2/32", "10.0.0.0/30");
@@ -29,160 +35,170 @@ fn lookup_test<D>(top: &Ptree<D>) {
     lookup_assert_none(top, "0.0.0.0/0");
 }
 
+fn route_ipv4_add(ptree: &mut Ptree<Ipv4Net, i32>, str: &str, data: i32) {
+    let prefix: Ipv4Net = str.parse().unwrap();
+    ptree.add(&prefix, data);
+}
+
+fn route_ipv4_delete(ptree: &mut Ptree<Ipv4Net, i32>, str: &str) {
+    let prefix: Ipv4Net = str.parse().unwrap();
+    ptree.delete(&prefix);
+}
+
 #[test]
 fn ipv4_lookup_reverse_test() {
-    let mut top = Ptree::new();
+    let mut top = Ptree::<Ipv4Net, i32>::new();
 
     // 10.0.0.0/{28..32}
-    top.route_ipv4_add("10.0.0.0/32", 32);
-    top.route_ipv4_add("10.0.0.0/31", 31);
-    top.route_ipv4_add("10.0.0.0/30", 30);
-    top.route_ipv4_add("10.0.0.0/29", 29);
-    top.route_ipv4_add("10.0.0.0/28", 28);
+    route_ipv4_add(&mut top, "10.0.0.0/32", 32);
+    route_ipv4_add(&mut top, "10.0.0.0/31", 31);
+    route_ipv4_add(&mut top, "10.0.0.0/30", 30);
+    route_ipv4_add(&mut top, "10.0.0.0/29", 29);
+    route_ipv4_add(&mut top, "10.0.0.0/28", 28);
 
-    lookup_test(&top);
+    lookup_test(&mut top);
 }
 
 #[test]
 fn ipv4_iter_count() {
-    let mut top = Ptree::new();
+    let mut top = Ptree::<Ipv4Net, i32>::new();
 
-    top.route_ipv4_add("0.0.0.0/0", 0);
-    top.route_ipv4_add("0.0.0.0/1", 1);
-    top.route_ipv4_add("128.0.0.0/1", 1);
+    route_ipv4_add(&mut top, "0.0.0.0/0", 0);
+    route_ipv4_add(&mut top, "0.0.0.0/1", 1);
+    route_ipv4_add(&mut top, "128.0.0.0/1", 1);
 
-    top.route_ipv4_add("0.0.0.0/2", 2);
-    top.route_ipv4_add("64.0.0.0/2", 2);
-    top.route_ipv4_add("128.0.0.0/2", 2);
-    top.route_ipv4_add("192.0.0.0/2", 2);
+    route_ipv4_add(&mut top, "0.0.0.0/2", 2);
+    route_ipv4_add(&mut top, "64.0.0.0/2", 2);
+    route_ipv4_add(&mut top, "128.0.0.0/2", 2);
+    route_ipv4_add(&mut top, "192.0.0.0/2", 2);
 
-    top.route_ipv4_add("0.0.0.0/3", 3);
-    top.route_ipv4_add("32.0.0.0/3", 3);
-    top.route_ipv4_add("64.0.0.0/3", 3);
-    top.route_ipv4_add("96.0.0.0/3", 3);
-    top.route_ipv4_add("128.0.0.0/3", 3);
-    top.route_ipv4_add("160.0.0.0/3", 3);
-    top.route_ipv4_add("192.0.0.0/3", 3);
-    top.route_ipv4_add("224.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "0.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "32.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "64.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "96.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "128.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "160.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "192.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "224.0.0.0/3", 3);
 
-    top.route_ipv4_add("0.0.0.0/4", 4);
-    top.route_ipv4_add("32.0.0.0/4", 4);
-    top.route_ipv4_add("64.0.0.0/4", 4);
-    top.route_ipv4_add("96.0.0.0/4", 4);
-    top.route_ipv4_add("128.0.0.0/4", 4);
-    top.route_ipv4_add("160.0.0.0/4", 4);
-    top.route_ipv4_add("192.0.0.0/4", 4);
-    top.route_ipv4_add("224.0.0.0/4", 4);
-    top.route_ipv4_add("16.0.0.0/4", 4);
-    top.route_ipv4_add("48.0.0.0/4", 4);
-    top.route_ipv4_add("89.0.0.0/4", 4);
-    top.route_ipv4_add("112.0.0.0/4", 4);
-    top.route_ipv4_add("144.0.0.0/4", 4);
-    top.route_ipv4_add("176.0.0.0/4", 4);
-    top.route_ipv4_add("208.0.0.0/4", 4);
-    top.route_ipv4_add("240.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "0.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "32.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "64.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "96.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "128.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "160.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "192.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "224.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "16.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "48.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "89.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "112.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "144.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "176.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "208.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "240.0.0.0/4", 4);
 
     assert_eq!(top.iter().count(), 31);
 }
 
 #[test]
 fn ipv4_iter_count_delete() {
-    let mut top = Ptree::new();
+    let mut top = Ptree::<Ipv4Net, i32>::new();
 
-    top.route_ipv4_add("0.0.0.0/0", 0);
-    top.route_ipv4_add("0.0.0.0/1", 1);
-    top.route_ipv4_add("128.0.0.0/1", 1);
+    route_ipv4_add(&mut top, "0.0.0.0/0", 0);
+    route_ipv4_add(&mut top, "0.0.0.0/1", 1);
+    route_ipv4_add(&mut top, "128.0.0.0/1", 1);
 
-    top.route_ipv4_add("0.0.0.0/2", 2);
-    top.route_ipv4_add("64.0.0.0/2", 2);
-    top.route_ipv4_add("128.0.0.0/2", 2);
-    top.route_ipv4_add("192.0.0.0/2", 2);
+    route_ipv4_add(&mut top, "0.0.0.0/2", 2);
+    route_ipv4_add(&mut top, "64.0.0.0/2", 2);
+    route_ipv4_add(&mut top, "128.0.0.0/2", 2);
+    route_ipv4_add(&mut top, "192.0.0.0/2", 2);
 
-    top.route_ipv4_add("0.0.0.0/3", 3);
-    top.route_ipv4_add("32.0.0.0/3", 3);
-    top.route_ipv4_add("64.0.0.0/3", 3);
-    top.route_ipv4_add("96.0.0.0/3", 3);
-    top.route_ipv4_add("128.0.0.0/3", 3);
-    top.route_ipv4_add("160.0.0.0/3", 3);
-    top.route_ipv4_add("192.0.0.0/3", 3);
-    top.route_ipv4_add("224.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "0.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "32.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "64.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "96.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "128.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "160.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "192.0.0.0/3", 3);
+    route_ipv4_add(&mut top, "224.0.0.0/3", 3);
 
-    top.route_ipv4_add("0.0.0.0/4", 4);
-    top.route_ipv4_add("32.0.0.0/4", 4);
-    top.route_ipv4_add("64.0.0.0/4", 4);
-    top.route_ipv4_add("96.0.0.0/4", 4);
-    top.route_ipv4_add("128.0.0.0/4", 4);
-    top.route_ipv4_add("160.0.0.0/4", 4);
-    top.route_ipv4_add("192.0.0.0/4", 4);
-    top.route_ipv4_add("224.0.0.0/4", 4);
-    top.route_ipv4_add("16.0.0.0/4", 4);
-    top.route_ipv4_add("48.0.0.0/4", 4);
-    top.route_ipv4_add("89.0.0.0/4", 4);
-    top.route_ipv4_add("112.0.0.0/4", 4);
-    top.route_ipv4_add("144.0.0.0/4", 4);
-    top.route_ipv4_add("176.0.0.0/4", 4);
-    top.route_ipv4_add("208.0.0.0/4", 4);
-    top.route_ipv4_add("240.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "0.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "32.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "64.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "96.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "128.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "160.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "192.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "224.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "16.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "48.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "89.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "112.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "144.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "176.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "208.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "240.0.0.0/4", 4);
 
-    top.route_ipv4_delete("0.0.0.0/0");
-    top.route_ipv4_delete("0.0.0.0/1");
-    top.route_ipv4_delete("128.0.0.0/1");
+    route_ipv4_delete(&mut top, "0.0.0.0/0");
+    route_ipv4_delete(&mut top, "0.0.0.0/1");
+    route_ipv4_delete(&mut top, "128.0.0.0/1");
 
-    top.route_ipv4_delete("0.0.0.0/2");
-    top.route_ipv4_delete("64.0.0.0/2");
-    top.route_ipv4_delete("128.0.0.0/2");
-    top.route_ipv4_delete("192.0.0.0/2");
+    route_ipv4_delete(&mut top, "0.0.0.0/2");
+    route_ipv4_delete(&mut top, "64.0.0.0/2");
+    route_ipv4_delete(&mut top, "128.0.0.0/2");
+    route_ipv4_delete(&mut top, "192.0.0.0/2");
 
-    top.route_ipv4_delete("0.0.0.0/3");
-    top.route_ipv4_delete("32.0.0.0/3");
-    top.route_ipv4_delete("64.0.0.0/3");
-    top.route_ipv4_delete("96.0.0.0/3");
-    top.route_ipv4_delete("128.0.0.0/3");
-    top.route_ipv4_delete("160.0.0.0/3");
-    top.route_ipv4_delete("192.0.0.0/3");
-    top.route_ipv4_delete("224.0.0.0/3");
+    route_ipv4_delete(&mut top, "0.0.0.0/3");
+    route_ipv4_delete(&mut top, "32.0.0.0/3");
+    route_ipv4_delete(&mut top, "64.0.0.0/3");
+    route_ipv4_delete(&mut top, "96.0.0.0/3");
+    route_ipv4_delete(&mut top, "128.0.0.0/3");
+    route_ipv4_delete(&mut top, "160.0.0.0/3");
+    route_ipv4_delete(&mut top, "192.0.0.0/3");
+    route_ipv4_delete(&mut top, "224.0.0.0/3");
 
-    top.route_ipv4_delete("0.0.0.0/4");
-    top.route_ipv4_delete("32.0.0.0/4");
-    top.route_ipv4_delete("64.0.0.0/4");
-    top.route_ipv4_delete("96.0.0.0/4");
-    top.route_ipv4_delete("128.0.0.0/4");
-    top.route_ipv4_delete("160.0.0.0/4");
-    top.route_ipv4_delete("192.0.0.0/4");
-    top.route_ipv4_delete("224.0.0.0/4");
-    top.route_ipv4_delete("16.0.0.0/4");
-    top.route_ipv4_delete("48.0.0.0/4");
-    top.route_ipv4_delete("89.0.0.0/4");
-    top.route_ipv4_delete("112.0.0.0/4");
-    top.route_ipv4_delete("144.0.0.0/4");
-    top.route_ipv4_delete("176.0.0.0/4");
-    top.route_ipv4_delete("208.0.0.0/4");
-    top.route_ipv4_delete("240.0.0.0/4");
+    route_ipv4_delete(&mut top, "0.0.0.0/4");
+    route_ipv4_delete(&mut top, "32.0.0.0/4");
+    route_ipv4_delete(&mut top, "64.0.0.0/4");
+    route_ipv4_delete(&mut top, "96.0.0.0/4");
+    route_ipv4_delete(&mut top, "128.0.0.0/4");
+    route_ipv4_delete(&mut top, "160.0.0.0/4");
+    route_ipv4_delete(&mut top, "192.0.0.0/4");
+    route_ipv4_delete(&mut top, "224.0.0.0/4");
+    route_ipv4_delete(&mut top, "16.0.0.0/4");
+    route_ipv4_delete(&mut top, "48.0.0.0/4");
+    route_ipv4_delete(&mut top, "89.0.0.0/4");
+    route_ipv4_delete(&mut top, "112.0.0.0/4");
+    route_ipv4_delete(&mut top, "144.0.0.0/4");
+    route_ipv4_delete(&mut top, "176.0.0.0/4");
+    route_ipv4_delete(&mut top, "208.0.0.0/4");
+    route_ipv4_delete(&mut top, "240.0.0.0/4");
 
     assert_eq!(top.iter().count(), 0);
 }
 
 #[test]
 fn ipv4_delete_default() {
-    let mut top = Ptree::new();
+    let mut top = Ptree::<Ipv4Net, i32>::new();
 
-    top.route_ipv4_add("0.0.0.0/0", 0);
+    route_ipv4_add(&mut top, "0.0.0.0/0", 0);
     assert_eq!(top.iter().count(), 1);
 
-    top.route_ipv4_delete("0.0.0.0/0");
+    route_ipv4_delete(&mut top, "0.0.0.0/0");
     assert_eq!(top.iter().count(), 0);
 }
 
 #[test]
 fn ipv4_delete_table_default() {
-    let mut top = Ptree::new();
+    let mut top = Ptree::<Ipv4Net, i32>::new();
 
-    top.route_ipv4_add("0.0.0.0/4", 4);
+    route_ipv4_add(&mut top, "0.0.0.0/4", 4);
     assert_eq!(top.iter().count(), 1);
 
-    top.route_ipv4_add("0.0.0.0/5", 5);
+    route_ipv4_add(&mut top, "0.0.0.0/5", 5);
     assert_eq!(top.iter().count(), 2);
 
-    top.route_ipv4_delete("0.0.0.0/4");
+    route_ipv4_delete(&mut top, "0.0.0.0/4");
     assert_eq!(top.iter().count(), 1);
 }

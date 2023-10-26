@@ -42,14 +42,19 @@ const IPV4_MASK: [[u8; 4]; 33] = [
     [0xff, 0xff, 0xff, 0xff],
 ];
 
-trait Prefix {
+pub trait Prefix {
     fn to_masked(&self) -> Self;
     fn contains(&self, prefix: &Self) -> bool;
     fn bit_at(&self, index: u8) -> u8;
     fn from_common(prefix1: &Self, prefix2: &Self) -> Self;
+    fn prefix_len(&self) -> u8;
 }
 
 impl Prefix for Ipv4Net {
+    fn prefix_len(&self) -> u8 {
+        self.prefix_len()
+    }
+
     fn to_masked(&self) -> Self {
         let octets: [u8; 4] = self.addr().octets();
         let mask = &IPV4_MASK[self.prefix_len() as usize];
@@ -132,14 +137,17 @@ impl Prefix for Ipv4Net {
 }
 
 #[derive(Debug)]
-pub struct Node<D> {
-    pub prefix: Ipv4Net,
+pub struct Node<P, D> {
+    pub prefix: P,
     pub data: RefCell<Option<D>>,
-    pub parent: RefCell<Option<Rc<Node<D>>>>,
-    pub children: [RefCell<Option<Rc<Node<D>>>>; 2],
+    pub parent: RefCell<Option<Rc<Node<P, D>>>>,
+    pub children: [RefCell<Option<Rc<Node<P, D>>>>; 2],
 }
 
-fn node_match_prefix<D>(node: Option<Rc<Node<D>>>, prefix: &Ipv4Net) -> bool {
+fn node_match_prefix<P, D>(node: Option<Rc<Node<P, D>>>, prefix: &P) -> bool
+where
+    P: Prefix,
+{
     match node {
         None => false,
         Some(node) => {
@@ -148,26 +156,32 @@ fn node_match_prefix<D>(node: Option<Rc<Node<D>>>, prefix: &Ipv4Net) -> bool {
     }
 }
 
-fn set_child<D>(parent: Rc<Node<D>>, child: Rc<Node<D>>) {
+fn set_child<P, D>(parent: Rc<Node<P, D>>, child: Rc<Node<P, D>>)
+where
+    P: Prefix + Clone + Copy,
+{
     let bit = child.prefix.bit_at(parent.prefix.prefix_len());
     parent.set_child_at(child.clone(), bit);
     child.set_parent(parent.clone());
 }
 
 #[derive(Debug)]
-pub struct Ptree<D> {
-    top: Option<Rc<Node<D>>>,
+pub struct Ptree<P, D> {
+    top: Option<Rc<Node<P, D>>>,
 }
 
-impl<D> Ptree<D> {
+impl<P, D> Ptree<P, D>
+where
+    P: Prefix + Clone + Copy,
+{
     pub fn new() -> Self {
         Self { top: None }
     }
 
-    pub fn insert(&mut self, prefix: &Ipv4Net) -> NodeIter<D> {
+    pub fn insert(&mut self, prefix: &P) -> NodeIter<P, D> {
         let mut cursor = self.top.clone();
-        let mut matched: Option<Rc<Node<D>>> = None;
-        let mut new_node: Rc<Node<D>>;
+        let mut matched: Option<Rc<Node<P, D>>> = None;
+        let mut new_node: Rc<Node<P, D>>;
 
         while node_match_prefix(cursor.clone(), prefix) {
             let node = cursor.clone().unwrap();
@@ -213,9 +227,9 @@ impl<D> Ptree<D> {
         NodeIter::from_node(new_node)
     }
 
-    pub fn lookup(&self, prefix: &Ipv4Net) -> NodeIter<D> {
+    pub fn lookup(&self, prefix: &P) -> NodeIter<P, D> {
         let mut cursor = self.top.clone();
-        let mut matched: Option<Rc<Node<D>>> = None;
+        let mut matched: Option<Rc<Node<P, D>>> = None;
 
         while node_match_prefix(cursor.clone(), prefix) {
             let node = cursor.clone().unwrap();
@@ -236,7 +250,7 @@ impl<D> Ptree<D> {
         }
     }
 
-    pub fn lookup_exact(&self, prefix: &Ipv4Net) -> NodeIter<D> {
+    pub fn lookup_exact(&self, prefix: &P) -> NodeIter<P, D> {
         let mut cursor = self.top.clone();
 
         while node_match_prefix(cursor.clone(), prefix) {
@@ -254,7 +268,7 @@ impl<D> Ptree<D> {
         NodeIter { node: None }
     }
 
-    pub fn find(&self, prefix: &Ipv4Net) -> NodeIter<D> {
+    pub fn find(&self, prefix: &P) -> NodeIter<P, D> {
         let mut cursor = self.top.clone();
 
         while node_match_prefix(cursor.clone(), prefix) {
@@ -268,7 +282,7 @@ impl<D> Ptree<D> {
         NodeIter { node: None }
     }
 
-    fn erase(&mut self, iter: NodeIter<D>) {
+    fn erase(&mut self, iter: NodeIter<P, D>) {
         if let Some(node) = iter.node {
             let has_left = node.child(NodeChild::Left).is_some();
             let has_right = node.child(NodeChild::Right).is_some();
@@ -310,60 +324,60 @@ impl<D> Ptree<D> {
         }
     }
 
-    pub fn add(&mut self, prefix: &Ipv4Net, data: D) {
+    pub fn add(&mut self, prefix: &P, data: D) {
         let it = self.insert(prefix);
         if let Some(node) = it.node {
             node.set_data(data);
         }
     }
 
-    pub fn delete(&mut self, prefix: &Ipv4Net) {
+    pub fn delete(&mut self, prefix: &P) {
         let iter = self.lookup_exact(prefix);
         self.erase(iter);
     }
 
-    pub fn node_iter(&self) -> NodeIter<D> {
+    pub fn node_iter(&self) -> NodeIter<P, D> {
         NodeIter {
             node: self.top.clone(),
         }
     }
 
-    pub fn iter(&self) -> DataIter<D> {
+    pub fn iter(&self) -> DataIter<P, D> {
         DataIter {
             node: self.top.clone(),
         }
     }
 
-    pub fn route_ipv4_add(&mut self, str: &str, data: D) {
-        let prefix: Ipv4Net = str.parse().unwrap();
-        self.add(&prefix, data);
-    }
+    // pub fn route_ipv4_add(&mut self, str: &str, data: D) {
+    //     let prefix: P = str.parse().unwrap();
+    //     self.add(&prefix, data);
+    // }
 
-    pub fn route_ipv4_delete(&mut self, str: &str) {
-        let prefix: Ipv4Net = str.parse().unwrap();
-        self.delete(&prefix);
-    }
+    // pub fn route_ipv4_delete(&mut self, str: &str) {
+    //     let prefix: Ipv4Net = str.parse().unwrap();
+    //     self.delete(&prefix);
+    // }
 
-    pub fn route_ipv4_lookup(&self, str: &str) -> Option<Rc<Node<D>>> {
-        let prefix: Ipv4Net = str.parse().unwrap();
-        let iter = self.lookup(&prefix);
-        iter.node
-    }
+    // pub fn route_ipv4_lookup(&self, str: &str) -> Option<Rc<Node<P, D>>> {
+    //     let prefix: Ipv4Net = str.parse().unwrap();
+    //     let iter = self.lookup(&prefix);
+    //     iter.node
+    // }
 
-    pub fn route_ipv4_lookup_exact(&self, str: &str) -> Option<Rc<Node<D>>> {
-        let prefix: Ipv4Net = str.parse().unwrap();
-        let iter = self.lookup_exact(&prefix);
-        iter.node
-    }
+    // pub fn route_ipv4_lookup_exact(&self, str: &str) -> Option<Rc<Node<P, D>>> {
+    //     let prefix: Ipv4Net = str.parse().unwrap();
+    //     let iter = self.lookup_exact(&prefix);
+    //     iter.node
+    // }
 
-    pub fn route_ipv4_find(&self, str: &str) -> Option<Rc<Node<D>>> {
-        let prefix: Ipv4Net = str.parse().unwrap();
-        let iter = self.find(&prefix);
-        iter.node
-    }
+    // pub fn route_ipv4_find(&self, str: &str) -> Option<Rc<Node<P, D>>> {
+    //     let prefix: Ipv4Net = str.parse().unwrap();
+    //     let iter = self.find(&prefix);
+    //     iter.node
+    // }
 }
 
-impl<D> Drop for Node<D> {
+impl<P, D> Drop for Node<P, D> {
     fn drop(&mut self) {
         // println!("Dropping: {}", self.prefix);
     }
@@ -374,8 +388,11 @@ pub enum NodeChild {
     Right = 1,
 }
 
-impl<D> Node<D> {
-    pub fn new(prefix: &Ipv4Net) -> Self {
+impl<P, D> Node<P, D>
+where
+    P: Prefix + Clone + Copy,
+{
+    pub fn new(prefix: &P) -> Self {
         Node {
             prefix: *prefix,
             parent: RefCell::new(None),
@@ -384,28 +401,28 @@ impl<D> Node<D> {
         }
     }
 
-    pub fn parent(&self) -> Option<Rc<Node<D>>> {
+    pub fn parent(&self) -> Option<Rc<Node<P, D>>> {
         self.parent.borrow().clone()
     }
 
-    pub fn child(&self, bit: NodeChild) -> Option<Rc<Node<D>>> {
+    pub fn child(&self, bit: NodeChild) -> Option<Rc<Node<P, D>>> {
         self.children[bit as usize].borrow().clone()
     }
 
-    fn from_common(prefix1: &Ipv4Net, prefix2: &Ipv4Net) -> Self {
-        let common = Ipv4Net::from_common(prefix1, prefix2);
+    fn from_common(prefix1: &P, prefix2: &P) -> Self {
+        let common = P::from_common(prefix1, prefix2);
         Self::new(&common)
     }
 
-    fn child_with(&self, bit: u8) -> Option<Rc<Node<D>>> {
+    fn child_with(&self, bit: u8) -> Option<Rc<Node<P, D>>> {
         self.children[bit as usize].borrow().clone()
     }
 
-    fn set_parent(&self, parent: Rc<Node<D>>) {
+    fn set_parent(&self, parent: Rc<Node<P, D>>) {
         self.parent.replace(Some(parent));
     }
 
-    fn set_child_at(&self, child: Rc<Node<D>>, bit: u8) {
+    fn set_child_at(&self, child: Rc<Node<P, D>>, bit: u8) {
         self.children[bit as usize].borrow_mut().replace(child);
     }
 
@@ -437,7 +454,7 @@ impl<D> Node<D> {
         std::ptr::eq(lhs, rhs)
     }
 
-    fn next(&self) -> Option<Rc<Node<D>>> {
+    fn next(&self) -> Option<Rc<Node<P, D>>> {
         if let Some(node) = self.child(NodeChild::Left) {
             return Some(node.clone());
         } else if let Some(node) = self.child(NodeChild::Right) {
@@ -465,7 +482,7 @@ impl<D> Node<D> {
         None
     }
 
-    fn next_with_data(&self) -> Option<Rc<Node<D>>> {
+    fn next_with_data(&self) -> Option<Rc<Node<P, D>>> {
         let mut next = self.next();
 
         while let Some(node) = next {
@@ -479,20 +496,23 @@ impl<D> Node<D> {
     }
 }
 
-pub struct NodeIter<D> {
-    pub node: Option<Rc<Node<D>>>,
+pub struct NodeIter<P, D> {
+    pub node: Option<Rc<Node<P, D>>>,
 }
 
-impl<D> NodeIter<D> {
-    fn from_node(node: Rc<Node<D>>) -> Self {
+impl<P, D> NodeIter<P, D> {
+    fn from_node(node: Rc<Node<P, D>>) -> Self {
         NodeIter {
             node: Some(node.clone()),
         }
     }
 }
 
-impl<D> Iterator for NodeIter<D> {
-    type Item = Rc<Node<D>>;
+impl<P, D> Iterator for NodeIter<P, D>
+where
+    P: Prefix + Clone + Copy,
+{
+    type Item = Rc<Node<P, D>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let node = self.node.clone();
@@ -506,12 +526,15 @@ impl<D> Iterator for NodeIter<D> {
     }
 }
 
-pub struct DataIter<D> {
-    pub node: Option<Rc<Node<D>>>,
+pub struct DataIter<P, D> {
+    pub node: Option<Rc<Node<P, D>>>,
 }
 
-impl<D> Iterator for DataIter<D> {
-    type Item = Rc<Node<D>>;
+impl<P, D> Iterator for DataIter<P, D>
+where
+    P: Prefix + Clone + Copy,
+{
+    type Item = Rc<Node<P, D>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let node = self.node.clone();
@@ -579,5 +602,12 @@ mod tests {
         let net127_8: Ipv4Net = "127.0.0.0/8".parse().unwrap();
         assert!(net10_8.contains(&net10_16));
         assert!(!net10_8.contains(&net127_8));
+    }
+
+    #[test]
+    pub fn test_generics() {
+        let mut ptree = Ptree::<Ipv4Net, i32>::new();
+        let p: Ipv4Net = "10.0.0.0/8".parse().unwrap();
+        ptree.add(&p, 0);
     }
 }
